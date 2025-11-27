@@ -5,15 +5,15 @@ services:
     image: postgres:15-alpine
     container_name: accounting_db
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: accounting
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-accounting}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U user -d accounting" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-accounting}" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,7 +22,7 @@ services:
     build: .
     container_name: accounting_app
     environment:
-      DATABASE_URL: postgresql://user:password@postgres:5432/accounting
+      DATABASE_URL: postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-accounting}
       NEXT_PUBLIC_API_URL: http://localhost:3000
       AUTH_PASSWORD: ${AUTH_PASSWORD:-admin123}
     ports:

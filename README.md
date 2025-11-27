@@ -150,11 +150,26 @@ See [`prisma/schema.prisma`](prisma/schema.prisma) for detailed schema definitio
 
 ### Environment Variables
 
-Create a `.env` file in the root directory:
+Create a `.env` file in the root directory to configure the application and set secure passwords.
+
+> [!IMPORTANT]
+> **Security Warning**: Change the default passwords below before deploying to production!
 
 ```env
-DATABASE_URL="postgresql://user:password@localhost:5432/accounting"
+# Database Credentials (for Docker)
+POSTGRES_USER=user
+POSTGRES_PASSWORD=change_this_password
+POSTGRES_DB=accounting
+
+# App Authentication
+AUTH_PASSWORD=change_this_admin_password
+
+# API Configuration
 NEXT_PUBLIC_API_URL="http://localhost:3000"
+
+# Database Connection String (Required for local development only)
+# If using Docker, this is automatically constructed from the variables above.
+DATABASE_URL="postgresql://user:change_this_password@localhost:5432/accounting"
 ```
 
 ### AI Integration
