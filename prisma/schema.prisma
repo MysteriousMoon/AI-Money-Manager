@@ -1,0 +1,71 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Transaction {
+  id           String   @id @default(uuid())
+  amount       Float
+  currencyCode String   @default("CNY")
+  categoryId   String
+  date         String   // Storing as ISO string YYYY-MM-DD for simplicity, or DateTime
+  note         String?
+  merchant     String?
+  type         String   // 'EXPENSE' | 'INCOME'
+  source       String   // 'MANUAL' | 'AI_SCAN' | 'RECURRING'
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("transactions")
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String
+  icon      String
+  type      String   // 'EXPENSE' | 'INCOME'
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("categories")
+}
+
+model RecurringRule {
+  id           String   @id @default(uuid())
+  name         String
+  amount       Float
+  currencyCode String   @default("CNY")
+  categoryId   String
+  merchant     String?
+  frequency    String   // 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'
+  interval     Int      @default(1)
+  startDate    String
+  lastRunDate  String?
+  nextRunDate  String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("recurring_rules")
+}
+
+model Settings {
+  id                 String   @id @default(uuid())
+  apiBaseUrl         String   @default("https://api.openai.com/v1")
+  apiKey             String?
+  model              String   @default("gpt-4o")
+  currency           String   @default("CNY")
+  exchangeRateApiKey String?
+  language           String   @default("en")
+  theme              String   @default("system")
+  updatedAt          DateTime @updatedAt
+
+  @@map("settings")
+}

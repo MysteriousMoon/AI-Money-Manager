@@ -1,0 +1,176 @@
+import { useStore } from '@/lib/store';
+
+type Language = 'en' | 'zh';
+
+const dictionaries: Record<Language, Record<string, string>> = {
+    en: {
+        'nav.home': 'Home',
+        'nav.reports': 'Reports',
+        'nav.recurring': 'Recurring',
+        'nav.transactions': 'List',
+        'nav.settings': 'Settings',
+
+        'dashboard.title': 'Overview',
+        'dashboard.total_expenses': 'Total Expenses',
+        'dashboard.income': 'Income',
+        'dashboard.spending': 'Spending',
+        'dashboard.vs_last_month': 'vs last month',
+        'dashboard.manual_add': 'Manual Add',
+        'dashboard.scan_receipt': 'Scan Receipt',
+        'dashboard.recent_transactions': 'Recent Transactions',
+        'dashboard.view_all': 'View All',
+        'dashboard.no_transactions': 'No transactions yet. Start by adding one!',
+
+        'add.title': 'Add Transaction',
+        'add.manual': 'Manual',
+        'add.scan': 'Scan',
+        'add.amount': 'Amount',
+        'add.date': 'Date',
+        'add.category': 'Category',
+        'add.merchant': 'Merchant',
+        'add.note': 'Note',
+        'add.save': 'Save Transaction',
+        'add.analyzing': 'Analyzing receipt...',
+        'add.take_photo': 'Take a photo or upload',
+        'add.upload_receipt': 'Upload Receipt',
+        'add.upload_desc': 'Upload a receipt to automatically extract details.',
+        'add.select_image': 'Select Image',
+        'add.scanned': 'Receipt Scanned',
+
+        'reports.title': 'Reports',
+        'reports.desc': 'Analyze your spending habits.',
+        'reports.by_category': 'Expenses by Category',
+        'reports.trend': 'Spending Trend (Last 7 Days)',
+
+        'recurring.title': 'Recurring Payments',
+        'recurring.desc': 'Manage subscriptions and fixed expenses.',
+        'recurring.add_button': 'Add Recurring Bill',
+        'recurring.add_rule': 'Add Rule',
+        'recurring.update': 'Update',
+        'recurring.cancel': 'Cancel',
+        'recurring.name': 'Name',
+        'recurring.frequency': 'Frequency',
+        'recurring.start_date': 'Start Date',
+        'recurring.next': 'Next',
+        'recurring.empty': 'No recurring bills set up yet.',
+
+        'settings.title': 'Settings',
+        'settings.desc': 'Configure AI and application preferences.',
+        'settings.ai_config': 'AI Configuration',
+        'settings.base_url': 'Base URL',
+        'settings.api_key': 'OpenAI API Key',
+        'settings.model': 'Model Name',
+        'settings.system_prompt': 'System Prompt',
+        'settings.currency_loc': 'Currency & Localization',
+        'settings.base_currency': 'Base Currency',
+        'settings.language': 'Language',
+        'settings.exchange_api_key': 'Exchange Rate API Key',
+        'settings.manage_categories': 'Manage Categories',
+        'settings.save': 'Save Settings',
+        'settings.saved': 'Saved!',
+
+        'categories.title': 'Categories',
+        'categories.desc': 'Manage your expense and income categories.',
+        'categories.add_new': 'Add New Category',
+        'categories.type': 'Type',
+        'categories.icon': 'Icon',
+
+        'transactions.title': 'Transactions',
+        'transactions.empty': 'No transactions found.',
+        'transactions.confirm_delete': 'Are you sure you want to delete this transaction?',
+        'transactions.date_format': 'MMMM d, yyyy',
+
+        'settings.data_management': 'Data Management',
+        'settings.manage_categories_desc': 'Edit, add, or remove transaction categories',
+    },
+    zh: {
+        'nav.home': '首页',
+        'nav.reports': '报表',
+        'nav.recurring': '周期',
+        'nav.transactions': '明细',
+        'nav.settings': '设置',
+
+        'dashboard.title': '概览',
+        'dashboard.total_expenses': '总支出',
+        'dashboard.income': '收入',
+        'dashboard.spending': '支出',
+        'dashboard.vs_last_month': '相比上月',
+        'dashboard.manual_add': '手动记账',
+        'dashboard.scan_receipt': '扫描小票',
+        'dashboard.recent_transactions': '近期交易',
+        'dashboard.view_all': '查看全部',
+        'dashboard.no_transactions': '暂无交易，快去记一笔吧！',
+
+        'add.title': '记一笔',
+        'add.manual': '手动',
+        'add.scan': '扫描',
+        'add.amount': '金额',
+        'add.date': '日期',
+        'add.category': '分类',
+        'add.merchant': '商家',
+        'add.note': '备注',
+        'add.save': '保存交易',
+        'add.analyzing': '正在分析小票...',
+        'add.take_photo': '拍照或上传',
+        'add.upload_receipt': '上传小票',
+        'add.upload_desc': '上传小票自动识别详情。',
+        'add.select_image': '选择图片',
+        'add.scanned': '已扫描小票',
+
+        'reports.title': '统计报表',
+        'reports.desc': '分析您的消费习惯。',
+        'reports.by_category': '分类支出占比',
+        'reports.trend': '近7天消费趋势',
+
+        'recurring.title': '周期账单',
+        'recurring.desc': '管理订阅和固定支出。',
+        'recurring.add_button': '添加周期账单',
+        'recurring.add_rule': '添加规则',
+        'recurring.update': '更新',
+        'recurring.cancel': '取消',
+        'recurring.name': '名称',
+        'recurring.frequency': '频率',
+        'recurring.start_date': '开始日期',
+        'recurring.next': '下次',
+        'recurring.empty': '暂无周期账单。',
+
+        'settings.title': '设置',
+        'settings.desc': '配置 AI 和应用偏好。',
+        'settings.ai_config': 'AI 配置',
+        'settings.base_url': '接口地址 (Base URL)',
+        'settings.api_key': 'OpenAI API Key',
+        'settings.model': '模型名称',
+        'settings.system_prompt': '系统提示词',
+        'settings.currency_loc': '货币与本地化',
+        'settings.base_currency': '本位币',
+        'settings.language': '语言',
+        'settings.exchange_api_key': '汇率 API Key',
+        'settings.manage_categories': '管理分类',
+        'settings.save': '保存设置',
+        'settings.saved': '已保存！',
+        'settings.data_management': '数据管理',
+        'settings.manage_categories_desc': '编辑、添加或删除交易分类',
+
+        'categories.title': '分类管理',
+        'categories.desc': '管理您的支出和收入分类。',
+        'categories.add_new': '添加新分类',
+        'categories.type': '类型',
+        'categories.icon': '图标',
+
+        'transactions.title': '交易列表',
+        'transactions.empty': '暂无交易记录。',
+        'transactions.confirm_delete': '确定要删除这条交易吗？',
+        'transactions.date_format': 'yyyy年M月d日',
+    }
+};
+
+export function useTranslation() {
+    const { settings } = useStore();
+    const language = settings.language || 'en';
+
+    const t = (key: string) => {
+        return dictionaries[language][key] || key;
+    };
+
+    return { t, language };
+}
