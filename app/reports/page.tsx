@@ -222,7 +222,7 @@ export default function ReportsPage() {
                 <h2 className="text-lg font-semibold mb-4">{t('reports.by_category')}</h2>
                 <div className="flex flex-col md:flex-row gap-8 items-center">
                     <div className="h-[300px] w-full md:w-1/2">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                             <PieChart>
                                 <Pie
                                     data={categoryData}
@@ -260,7 +260,7 @@ export default function ReportsPage() {
             <section className="bg-card border rounded-xl p-6 shadow-sm">
                 <h2 className="text-lg font-semibold mb-4">{t('reports.trend')}</h2>
                 <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                         <BarChart data={trendData}>
                             <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
                             <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}`} />
