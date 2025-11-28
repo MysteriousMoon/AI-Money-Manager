@@ -8,8 +8,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_DB: ${POSTGRES_DB:-accounting}
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,7 +22,8 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-accounting}
       NEXT_PUBLIC_API_URL: http://localhost:3000
-      AUTH_PASSWORD: ${AUTH_PASSWORD:-admin123}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+
     ports:
       - "3000:3000"
     depends_on:

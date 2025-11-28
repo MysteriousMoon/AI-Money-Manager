@@ -3,10 +3,19 @@
 import { prisma } from '@/lib/db';
 import { RecurringRule } from '@/types';
 import { revalidatePath } from 'next/cache';
+import { getCurrentUser } from './auth';
 
 export async function getRecurringRules() {
     try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         const rules = await prisma.recurringRule.findMany({
+            where: {
+                userId: user.id,
+            },
             orderBy: { createdAt: 'desc' }
         });
 
@@ -32,9 +41,15 @@ export async function getRecurringRules() {
 
 export async function addRecurringRule(rule: RecurringRule) {
     try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         const newRule = await prisma.recurringRule.create({
             data: {
                 id: rule.id,
+                userId: user.id,
                 name: rule.name,
                 amount: rule.amount,
                 currencyCode: rule.currencyCode,
@@ -57,6 +72,11 @@ export async function addRecurringRule(rule: RecurringRule) {
 
 export async function updateRecurringRule(id: string, updates: Partial<RecurringRule>) {
     try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         // Map updates to Prisma fields
         const prismaUpdates: any = {};
         if (updates.name) prismaUpdates.name = updates.name;
@@ -69,7 +89,10 @@ export async function updateRecurringRule(id: string, updates: Partial<Recurring
         if (updates.active !== undefined) prismaUpdates.isActive = updates.active;
 
         const updatedRule = await prisma.recurringRule.update({
-            where: { id },
+            where: {
+                id,
+                userId: user.id,
+            },
             data: prismaUpdates
         });
         revalidatePath('/recurring');
@@ -82,8 +105,16 @@ export async function updateRecurringRule(id: string, updates: Partial<Recurring
 
 export async function deleteRecurringRule(id: string) {
     try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         await prisma.recurringRule.delete({
-            where: { id }
+            where: {
+                id,
+                userId: user.id,
+            }
         });
         revalidatePath('/recurring');
         return { success: true };

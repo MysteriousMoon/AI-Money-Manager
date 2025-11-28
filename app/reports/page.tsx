@@ -54,8 +54,10 @@ const CustomTooltip = ({ active, payload, settings }: any) => {
     return null;
 };
 
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+
 export default function ReportsPage() {
-    const { transactions, categories, settings } = useStore();
+    const { transactions, categories, settings, isLoading: isStoreLoading } = useStore();
     const { t } = useTranslation();
     const [isLoading, setIsLoading] = useState(true);
     const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
@@ -156,12 +158,8 @@ export default function ReportsPage() {
         );
     };
 
-    if (isLoading && categories.length === 0) {
-        return (
-            <div className="flex items-center justify-center min-h-[50vh]">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-        );
+    if (isStoreLoading || (isLoading && categories.length === 0)) {
+        return <LoadingSpinner />;
     }
 
     return (

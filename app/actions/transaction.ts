@@ -2,10 +2,19 @@
 
 import { prisma } from '@/lib/db';
 import { Transaction } from '@/types';
+import { getCurrentUser } from './auth';
 
 export async function getTransactions() {
     try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         const transactions = await prisma.transaction.findMany({
+            where: {
+                userId: user.id,
+            },
             orderBy: {
                 date: 'desc',
             },
@@ -19,9 +28,15 @@ export async function getTransactions() {
 
 export async function addTransaction(transaction: Transaction) {
     try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         const newTransaction = await prisma.transaction.create({
             data: {
                 id: transaction.id,
+                userId: user.id,
                 amount: transaction.amount,
                 currencyCode: transaction.currencyCode,
                 categoryId: transaction.categoryId,
@@ -41,8 +56,17 @@ export async function addTransaction(transaction: Transaction) {
 
 export async function deleteTransaction(id: string) {
     try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        // Verify ownership before deleting
         await prisma.transaction.delete({
-            where: { id },
+            where: {
+                id,
+                userId: user.id,
+            },
         });
         return { success: true };
     } catch (error) {

@@ -2,14 +2,25 @@
 
 import { prisma } from '@/lib/db';
 import { AppSettings, DEFAULT_SETTINGS } from '@/types';
+import { getCurrentUser } from './auth';
 
 export async function getSettings() {
     try {
-        const settings = await prisma.settings.findFirst();
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        const settings = await prisma.settings.findUnique({
+            where: { userId: user.id },
+        });
         if (!settings) {
-            // Create default settings
+            // Create default settings for this user
             const newSettings = await prisma.settings.create({
-                data: DEFAULT_SETTINGS
+                data: {
+                    ...DEFAULT_SETTINGS,
+                    userId: user.id,
+                }
             });
             return { success: true, data: newSettings };
         }
@@ -22,17 +33,28 @@ export async function getSettings() {
 
 export async function updateSettings(settings: Partial<AppSettings>) {
     try {
-        const existing = await prisma.settings.findFirst();
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        const existing = await prisma.settings.findUnique({
+            where: { userId: user.id },
+        });
         if (existing) {
             const updated = await prisma.settings.update({
-                where: { id: existing.id },
+                where: { userId: user.id },
                 data: settings,
             });
             return { success: true, data: updated };
         } else {
-            // Should not happen if getSettings is called first, but handle it
+            // Create if not exists
             const newSettings = await prisma.settings.create({
-                data: { ...DEFAULT_SETTINGS, ...settings }
+                data: {
+                    ...DEFAULT_SETTINGS,
+                    ...settings,
+                    userId: user.id,
+                }
             });
             return { success: true, data: newSettings };
         }

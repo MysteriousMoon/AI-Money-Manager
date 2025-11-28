@@ -5,10 +5,12 @@ import { usePathname } from 'next/navigation';
 import { Home, Settings, PieChart, Repeat, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
+import { useStore } from '@/lib/store';
 
 export function Navbar() {
     const pathname = usePathname();
     const { t } = useTranslation();
+    const isLoading = useStore((state) => state.isLoading);
 
     const links = [
         { href: '/', label: t('nav.home'), icon: Home },
@@ -17,6 +19,15 @@ export function Navbar() {
         { href: '/recurring', label: t('nav.recurring'), icon: Repeat },
         { href: '/settings', label: t('nav.settings'), icon: Settings },
     ];
+
+    // Hide navbar on login and register pages
+    if (pathname === '/login' || pathname === '/register') {
+        return null;
+    }
+
+    if (isLoading) {
+        return null;
+    }
 
     return (
         <nav className="fixed bottom-0 left-0 right-0 border-t bg-background/80 backdrop-blur-lg md:top-0 md:bottom-auto md:border-b md:border-t-0 z-50">

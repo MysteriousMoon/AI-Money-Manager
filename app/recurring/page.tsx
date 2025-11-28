@@ -9,8 +9,10 @@ import { useTranslation } from '@/lib/i18n';
 import { CURRENCIES } from '@/lib/currency';
 import { recognizeRecurring } from '@/app/actions/recognizeRecurring';
 
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+
 export default function RecurringPage() {
-    const { recurringRules, categories, addRecurringRule, updateRecurringRule, deleteRecurringRule, addTransaction, settings } = useStore();
+    const { recurringRules, categories, addRecurringRule, updateRecurringRule, deleteRecurringRule, addTransaction, settings, isLoading } = useStore();
     const { t } = useTranslation();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -312,6 +314,10 @@ export default function RecurringPage() {
         setStartDate(rule.startDate);
         setIsAdding(false);
     };
+
+    if (isLoading) {
+        return <LoadingSpinner />;
+    }
 
     return (
         <div className="container max-w-2xl mx-auto p-4 pb-24 md:pt-24 space-y-6">

@@ -65,9 +65,9 @@ export default function CategoriesPage() {
                 </div>
             </header>
 
-            {/* Add/Edit Form */}
-            {(isAdding || editingId) && (
-                <form onSubmit={editingId ? handleUpdate : handleAdd} className="bg-muted/50 p-4 rounded-lg space-y-4 animate-in fade-in slide-in-from-top-2">
+            {/* Add Form (only for adding new, not editing) */}
+            {isAdding && !editingId && (
+                <form onSubmit={handleAdd} className="bg-muted/50 p-4 rounded-lg space-y-4 animate-in fade-in slide-in-from-top-2">
                     <div className="flex gap-4">
                         <div className="w-16">
                             <label className="text-xs font-medium text-muted-foreground">{t('categories.icon')}</label>
@@ -112,7 +112,7 @@ export default function CategoriesPage() {
                             type="submit"
                             className="px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
                         >
-                            {editingId ? t('recurring.update') : 'Add'}
+                            Add
                         </button>
                     </div>
                 </form>
@@ -129,40 +129,100 @@ export default function CategoriesPage() {
             )}
 
             <div className="space-y-2">
-                {categories.map((category) => (
-                    <div
-                        key={category.id}
-                        className="flex items-center justify-between p-3 bg-card border rounded-lg group"
-                    >
-                        <div className="flex items-center gap-3">
-                            <span className="text-2xl bg-muted h-10 w-10 flex items-center justify-center rounded-full">
-                                {category.icon}
-                            </span>
-                            <div>
-                                <p className="font-medium">{category.name}</p>
-                                <p className="text-xs text-muted-foreground">{category.type}</p>
-                            </div>
+                {categories.map((category) => {
+                    const isEditing = editingId === category.id;
+
+                    return (
+                        <div
+                            key={category.id}
+                            className="bg-card border rounded-lg overflow-hidden"
+                        >
+                            {!isEditing ? (
+                                <div className="flex items-center justify-between p-3 group">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-2xl bg-muted h-10 w-10 flex items-center justify-center rounded-full">
+                                            {category.icon}
+                                        </span>
+                                        <div>
+                                            <p className="font-medium">{category.name}</p>
+                                            <p className="text-xs text-muted-foreground">{category.type}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={() => startEdit(category)}
+                                            className="p-2 hover:bg-accent rounded-md text-muted-foreground hover:text-foreground"
+                                        >
+                                            <Edit2 className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                if (confirm('Are you sure? This will not delete transactions associated with this category.')) {
+                                                    deleteCategory(category.id);
+                                                }
+                                            }}
+                                            className="p-2 hover:bg-destructive/10 rounded-md text-muted-foreground hover:text-destructive"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="p-4 bg-muted/30">
+                                    <form onSubmit={handleUpdate} className="space-y-4">
+                                        <div className="flex gap-4">
+                                            <div className="w-16">
+                                                <label className="text-xs font-medium text-muted-foreground">{t('categories.icon')}</label>
+                                                <input
+                                                    value={icon}
+                                                    onChange={(e) => setIcon(e.target.value)}
+                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-center text-lg"
+                                                    maxLength={2}
+                                                />
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="text-xs font-medium text-muted-foreground">{t('recurring.name')}</label>
+                                                <input
+                                                    value={name}
+                                                    onChange={(e) => setName(e.target.value)}
+                                                    placeholder="Category Name"
+                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="w-24">
+                                                <label className="text-xs font-medium text-muted-foreground">{t('categories.type')}</label>
+                                                <select
+                                                    value={type}
+                                                    onChange={(e) => setType(e.target.value as 'EXPENSE' | 'INCOME')}
+                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-2 py-2 text-sm"
+                                                >
+                                                    <option value="EXPENSE">Exp</option>
+                                                    <option value="INCOME">Inc</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className="flex justify-end gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={resetForm}
+                                                className="px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+                                            >
+                                                {t('recurring.cancel')}
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className="px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                                            >
+                                                {t('recurring.update')}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            )}
                         </div>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                                onClick={() => startEdit(category)}
-                                className="p-2 hover:bg-accent rounded-md text-muted-foreground hover:text-foreground"
-                            >
-                                <Edit2 className="h-4 w-4" />
-                            </button>
-                            <button
-                                onClick={() => {
-                                    if (confirm('Are you sure? This will not delete transactions associated with this category.')) {
-                                        deleteCategory(category.id);
-                                    }
-                                }}
-                                className="p-2 hover:bg-destructive/10 rounded-md text-muted-foreground hover:text-destructive"
-                            >
-                                <Trash2 className="h-4 w-4" />
-                            </button>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );

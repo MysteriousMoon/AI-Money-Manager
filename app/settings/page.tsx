@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useStore } from '@/lib/store';
-import { Save, RefreshCw, Moon, Sun, Laptop, List, ArrowRight } from 'lucide-react';
+import { Save, RefreshCw, Moon, Sun, Laptop, List, ArrowRight, LogOut } from 'lucide-react';
+import { logout } from '@/app/actions/auth';
 import { getExchangeRate } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
@@ -235,6 +236,18 @@ export default function SettingsPage() {
                     {isSaved ? t('settings.saved') : t('settings.save')}
                 </button>
             </form>
+
+            <div className="border-t pt-8">
+                <form action={logout}>
+                    <button
+                        type="submit"
+                        className="flex items-center justify-center w-full md:w-auto px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 rounded-md transition-colors"
+                    >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        {t('settings.sign_out')}
+                    </button>
+                </form>
+            </div>
         </div>
     );
 }

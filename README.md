@@ -162,7 +162,7 @@ POSTGRES_PASSWORD=change_this_password
 POSTGRES_DB=accounting
 
 # App Authentication
-AUTH_PASSWORD=change_this_admin_password
+
 
 # API Configuration
 NEXT_PUBLIC_API_URL="http://localhost:3000"

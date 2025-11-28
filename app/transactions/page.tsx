@@ -8,12 +8,15 @@ import { Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+
 export default function TransactionsPage() {
     const { t } = useTranslation();
     const router = useRouter();
     const transactions = useStore((state) => state.transactions);
     const deleteTransaction = useStore((state) => state.deleteTransaction);
     const categories = useStore((state) => state.categories);
+    const isLoading = useStore((state) => state.isLoading);
 
     const handleDelete = (id: string) => {
         if (confirm(t('transactions.confirm_delete'))) {
@@ -42,6 +45,10 @@ export default function TransactionsPage() {
     }, {} as Record<string, typeof transactions>);
 
     const sortedDates = Object.keys(groupedTransactions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
+    if (isLoading) {
+        return <LoadingSpinner />;
+    }
 
     return (
         <div className="min-h-screen bg-background pb-20">

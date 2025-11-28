@@ -11,6 +11,8 @@ datasource db {
 
 model Transaction {
   id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   amount       Float
   currencyCode String   @default("CNY")
   categoryId   String
@@ -22,11 +24,14 @@ model Transaction {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  @@index([userId])
   @@map("transactions")
 }
 
 model Category {
   id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
   icon      String
   type      String   // 'EXPENSE' | 'INCOME'
@@ -34,11 +39,14 @@ model Category {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([userId])
   @@map("categories")
 }
 
 model RecurringRule {
   id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name         String
   amount       Float
   currencyCode String   @default("CNY")
@@ -53,11 +61,14 @@ model RecurringRule {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  @@index([userId])
   @@map("recurring_rules")
 }
 
 model Settings {
   id                 String   @id @default(uuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   apiBaseUrl         String   @default("https://api.openai.com/v1")
   apiKey             String?
   model              String   @default("gpt-4o")
@@ -68,4 +79,20 @@ model Settings {
   updatedAt          DateTime @updatedAt
 
   @@map("settings")
+}
+
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  password       String          @default("123456")
+  name           String?
+  role           String          @default("USER") // 'ADMIN' | 'USER'
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  transactions   Transaction[]
+  categories     Category[]
+  recurringRules RecurringRule[]
+  settings       Settings?
+
+  @@map("users")
 }

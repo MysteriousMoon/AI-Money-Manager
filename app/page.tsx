@@ -9,8 +9,10 @@ import { formatCurrency } from '@/lib/currency';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
 
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+
 export default function Dashboard() {
-  const { transactions, settings, categories } = useStore();
+  const { transactions, settings, categories, isLoading } = useStore();
   const { t } = useTranslation();
 
   // Filter for current month
@@ -54,6 +56,10 @@ export default function Dashboard() {
   const percentChange = lastMonthTotal > 0
     ? ((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100
     : 0;
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
 
   return (
     <div className="container max-w-2xl mx-auto p-4 pb-24 md:pt-24 space-y-8">

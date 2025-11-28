@@ -2,22 +2,30 @@
 
 import { prisma } from '@/lib/db';
 import { Category, DEFAULT_CATEGORIES } from '@/types';
+import { getCurrentUser } from './auth';
 
 export async function getCategories() {
     try {
-        const categories = await prisma.category.findMany();
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        const categories = await prisma.category.findMany({
+            where: {
+                userId: user.id,
+            },
+        });
         if (categories.length === 0) {
-            // Seed default categories if none exist
-            // We can't use createMany with SQLite but Postgres supports it.
-            // However, let's just return defaults if DB is empty for now, or seed them?
-            // Better to seed them so they can be managed.
+            // Seed default categories for this user if none exist
             await prisma.category.createMany({
                 data: DEFAULT_CATEGORIES.map(c => ({
                     id: c.id,
                     name: c.name,
                     icon: c.icon,
                     type: c.type,
-                    isDefault: true
+                    isDefault: true,
+                    userId: user.id,
                 }))
             });
             return { success: true, data: DEFAULT_CATEGORIES };
@@ -31,9 +39,15 @@ export async function getCategories() {
 
 export async function addCategory(category: Category) {
     try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         const newCategory = await prisma.category.create({
             data: {
                 id: category.id,
+                userId: user.id,
                 name: category.name,
                 icon: category.icon,
                 type: category.type,
@@ -49,8 +63,16 @@ export async function addCategory(category: Category) {
 
 export async function deleteCategory(id: string) {
     try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         await prisma.category.delete({
-            where: { id },
+            where: {
+                id,
+                userId: user.id,
+            },
         });
         return { success: true };
     } catch (error) {
@@ -61,8 +83,16 @@ export async function deleteCategory(id: string) {
 
 export async function updateCategory(id: string, updates: Partial<Category>) {
     try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
         const updatedCategory = await prisma.category.update({
-            where: { id },
+            where: {
+                id,
+                userId: user.id,
+            },
             data: {
                 name: updates.name,
                 icon: updates.icon,
