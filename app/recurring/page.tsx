@@ -544,14 +544,14 @@ export default function RecurringPage() {
                             className="bg-card border rounded-lg overflow-hidden"
                         >
                             {!isEditing ? (
-                                <div className="flex items-center justify-between p-4 group">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between p-4 group gap-4">
                                     <div className="flex items-center gap-4">
-                                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
                                             <RefreshCw className="h-5 w-5" />
                                         </div>
-                                        <div>
-                                            <h3 className="font-semibold">{rule.name}</h3>
-                                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <div className="min-w-0">
+                                            <h3 className="font-semibold truncate">{rule.name}</h3>
+                                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                                 <span>{category?.icon} {category?.name}</span>
                                                 <span>•</span>
                                                 <span>{rule.frequency}</span>
@@ -561,12 +561,12 @@ export default function RecurringPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-4">
-                                        <span className="font-bold">
+                                    <div className="flex items-center justify-between md:justify-end gap-4 pl-14 md:pl-0">
+                                        <span className="font-bold text-lg">
                                             {new Intl.NumberFormat('en-US', { style: 'currency', currency: rule.currencyCode }).format(rule.amount)}
                                         </span>
 
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                             <button
                                                 onClick={() => startEdit(rule)}
                                                 className="p-2 hover:bg-accent rounded-md text-muted-foreground hover:text-foreground"
