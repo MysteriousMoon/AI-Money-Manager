@@ -36,19 +36,29 @@ export default function Dashboard() {
   const thisMonthExpenses = useMemo(() => thisMonthTransactions.filter(t => t.type === 'EXPENSE'), [thisMonthTransactions]);
   const thisMonthIncomeList = useMemo(() => thisMonthTransactions.filter(t => t.type === 'INCOME'), [thisMonthTransactions]);
 
+  // All-time calculations for Main Card
+  const allTimeExpenses = useMemo(() => transactions.filter(t => t.type === 'EXPENSE'), [transactions]);
+  const allTimeIncomeList = useMemo(() => transactions.filter(t => t.type === 'INCOME'), [transactions]);
+
   const { total: thisMonthTotal, loading: loadingThis } = useCurrencyTotal(
     thisMonthExpenses,
     settings
   );
-
-
 
   const { total: thisMonthIncome, loading: loadingIncome } = useCurrencyTotal(
     thisMonthIncomeList,
     settings
   );
 
+  const { total: allTimeTotal, loading: loadingAllTimeExpenses } = useCurrencyTotal(
+    allTimeExpenses,
+    settings
+  );
 
+  const { total: allTimeIncome, loading: loadingAllTimeIncome } = useCurrencyTotal(
+    allTimeIncomeList,
+    settings
+  );
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -76,8 +86,8 @@ export default function Dashboard() {
         <div className="relative z-10 grid grid-cols-2 gap-8 items-center">
           <div className="pr-8">
             <p className="text-primary-foreground/80 text-sm font-medium mb-1">{t('dashboard.balance')}</p>
-            <div className="text-4xl font-bold tracking-tight">
-              {loadingThis || loadingIncome ? '...' : formatCurrency(thisMonthIncome - thisMonthTotal, settings.currency)}
+            <div className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight whitespace-nowrap">
+              {loadingAllTimeExpenses || loadingAllTimeIncome ? '...' : formatCurrency(allTimeIncome - allTimeTotal, settings.currency)}
             </div>
           </div>
 
@@ -85,13 +95,13 @@ export default function Dashboard() {
             <div className="flex justify-between items-baseline gap-4">
               <span className="text-primary-foreground/80 text-sm font-medium">{t('dashboard.total_income')}</span>
               <span className="text-lg font-semibold text-green-200 text-right">
-                {loadingIncome ? '...' : formatCurrency(thisMonthIncome, settings.currency)}
+                {loadingAllTimeIncome ? '...' : formatCurrency(allTimeIncome, settings.currency)}
               </span>
             </div>
             <div className="flex justify-between items-baseline gap-4">
               <span className="text-primary-foreground/80 text-sm font-medium">{t('dashboard.total_expenses')}</span>
               <span className="text-lg font-semibold text-red-200 text-right">
-                {loadingThis ? '...' : formatCurrency(thisMonthTotal, settings.currency)}
+                {loadingAllTimeExpenses ? '...' : formatCurrency(allTimeTotal, settings.currency)}
               </span>
             </div>
           </div>

@@ -65,6 +65,9 @@ export default function ReportsPage() {
 
     const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
 
+    // Filter to only show Expense categories
+    const expenseCategories = categories.filter(c => c.type === 'EXPENSE');
+
     // Helper to get stable color for a category
     const getCategoryColor = (categoryId: string) => {
         const index = categories.findIndex(c => c.id === categoryId);
@@ -73,10 +76,10 @@ export default function ReportsPage() {
 
     // Initialize selected categories when categories are loaded
     useEffect(() => {
-        if (categories.length > 0 && selectedCategoryIds.length === 0) {
-            setSelectedCategoryIds(categories.map(c => c.id));
+        if (expenseCategories.length > 0 && selectedCategoryIds.length === 0) {
+            setSelectedCategoryIds(expenseCategories.map(c => c.id));
         }
-    }, [categories]);
+    }, [categories]); // Keep dependency on categories to trigger re-calc if they load
 
     useEffect(() => {
         const calculateData = async () => {
@@ -178,19 +181,19 @@ export default function ReportsPage() {
                     </div>
                     <button
                         onClick={() => {
-                            if (selectedCategoryIds.length === categories.length) {
+                            if (selectedCategoryIds.length === expenseCategories.length) {
                                 setSelectedCategoryIds([]);
                             } else {
-                                setSelectedCategoryIds(categories.map(c => c.id));
+                                setSelectedCategoryIds(expenseCategories.map(c => c.id));
                             }
                         }}
                         className="text-xs text-primary hover:underline font-medium"
                     >
-                        {selectedCategoryIds.length === categories.length ? 'Clear All' : 'Select All'}
+                        {selectedCategoryIds.length === expenseCategories.length ? 'Clear All' : 'Select All'}
                     </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    {categories.map(category => {
+                    {expenseCategories.map(category => {
                         const isSelected = selectedCategoryIds.includes(category.id);
                         const color = getCategoryColor(category.id);
                         return (
