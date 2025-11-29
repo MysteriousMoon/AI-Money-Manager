@@ -281,8 +281,18 @@ function AddTransactionContent() {
         }
     };
 
-    const handleSaveAll = () => {
-        pendingTransactions.forEach(t => addTransaction(t));
+    const handleSaveAll = async () => {
+        // Save all transactions
+        const promises = pendingTransactions.map(t => addTransaction(t));
+        await Promise.all(promises);
+
+        // Clear state to prevent duplicates
+        setPendingTransactions([]);
+        setPreviewUrls([]);
+        setScanText('');
+        setIsReviewing(false);
+
+        // Redirect
         startTransition(() => {
             router.push('/');
         });
