@@ -74,3 +74,38 @@ export async function deleteTransaction(id: string) {
         return { success: false, error: 'Failed to delete transaction' };
     }
 }
+
+export async function updateTransaction(id: string, updates: Partial<Transaction>) {
+    try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        // Verify ownership before updating
+        const existing = await prisma.transaction.findUnique({
+            where: { id },
+        });
+
+        if (!existing || existing.userId !== user.id) {
+            return { success: false, error: 'Transaction not found or unauthorized' };
+        }
+
+        const updatedTransaction = await prisma.transaction.update({
+            where: { id },
+            data: {
+                amount: updates.amount,
+                currencyCode: updates.currencyCode,
+                categoryId: updates.categoryId,
+                date: updates.date,
+                note: updates.note,
+                merchant: updates.merchant,
+                type: updates.type,
+            },
+        });
+        return { success: true, data: updatedTransaction };
+    } catch (error) {
+        console.error('Failed to update transaction:', error);
+        return { success: false, error: 'Failed to update transaction' };
+    }
+}

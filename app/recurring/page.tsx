@@ -227,7 +227,8 @@ export default function RecurringPage() {
                 previewUrls,
                 settings,
                 categories.map(c => c.name),
-                scanText
+                scanText,
+                settings.currency
             );
 
             if (result.success && result.data && result.data.length > 0) {

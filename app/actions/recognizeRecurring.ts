@@ -15,7 +15,8 @@ export async function recognizeRecurring(
     images: string[],
     settings: AppSettings,
     categories: string[] = [],
-    text: string = ''
+    text: string = '',
+    defaultCurrency: string = 'USD'
 ): Promise<{ success: boolean; data?: RecurringRecognitionResult[]; error?: string }> {
     const { apiBaseUrl, apiKey, model } = settings;
 
@@ -32,14 +33,15 @@ IMPORTANT RULES:
 4. **TEXT-ONLY MODE**: If NO images are provided but text is given, parse the text to extract recurring payment details.
 5. **TEXT AS CONTEXT**: If BOTH images and text are provided, use the text to clarify unclear information in the images.
 6. **LANGUAGE SUPPORT**: Support both English and Chinese input. Output name/category in the language of the input or receipt.
-7. Return a strict JSON ARRAY of recurring rule objects.
+7. **DEFAULT CURRENCY**: If the currency is not explicitly stated in the image or text, use "${defaultCurrency}".
+8. Return a strict JSON ARRAY of recurring rule objects.
 
 Output Format:
 [
   {
     "name": "string",           // Service name (e.g., Netflix, Rent)
     "amount": number,           // Payment amount
-    "currency": "ISO_CODE",     // e.g., USD, CNY
+    "currency": "ISO_CODE",     // e.g., USD, CNY. Default to ${defaultCurrency} if not found.
     "category": "string",       // Category name (use existing or suggest new)
     "frequency": "WEEKLY" | "MONTHLY" | "YEARLY",
     "startDate": "YYYY-MM-DD"   // Next due date or start date
@@ -54,8 +56,8 @@ Context:
 EXAMPLES:
 - "Netflix $15.99/mo" -> { name: "Netflix", amount: 15.99, frequency: "MONTHLY", ... }
 - "Yearly Gym Membership $500" -> { name: "Gym", amount: 500, frequency: "YEARLY", ... }
-- Text: "Spotify premium 9.99 per month" -> { name: "Spotify", amount: 9.99, frequency: "MONTHLY", ... }
-- Text: "房租 3000元 每月" -> { name: "房租", amount: 3000, currency: "CNY", frequency: "MONTHLY", ... }`;
+- Text: "Spotify premium 9.99 per month" -> { name: "Spotify", amount: 9.99, frequency: "MONTHLY", currency: "USD", ... }
+- Text: "房租 3000 每月" -> { name: "房租", amount: 3000, currency: "${defaultCurrency}", frequency: "MONTHLY", ... }`;
 
     if (!apiKey) return { success: false, error: 'API Key is missing.' };
     if (!apiBaseUrl) return { success: false, error: 'API Base URL is missing.' };

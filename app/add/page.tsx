@@ -207,7 +207,7 @@ function AddTransactionContent() {
             const categoryNames = categories.map(c => c.name);
             console.log('[processImages] Categories:', categoryNames);
 
-            const result = await recognizeReceipt(base64Images, settings, categoryNames, text);
+            const result = await recognizeReceipt(base64Images, settings, categoryNames, text, settings.currency);
             console.log('[processImages] Recognition result:', result);
 
             if (result.success && result.data) {

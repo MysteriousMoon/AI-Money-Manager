@@ -81,7 +81,11 @@ export const useStore = create<AppState>((set, get) => ({
         set((state) => ({
             transactions: state.transactions.map((t) => t.id === id ? { ...t, ...updates } : t)
         }));
-        // TODO: Call server action
+        const res = await import('@/app/actions/transaction').then(mod => mod.updateTransaction(id, updates));
+        if (!res.success) {
+            console.error(res.error);
+            // Revert state if needed (omitted for simplicity)
+        }
     },
     deleteTransaction: async (id) => {
         set((state) => ({

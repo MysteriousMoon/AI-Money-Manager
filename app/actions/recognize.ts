@@ -21,7 +21,8 @@ export async function recognizeReceipt(
     images: string[],
     settings: AppSettings,
     categories: string[] = [],
-    text: string = ''
+    text: string = '',
+    defaultCurrency: string = 'USD'
 ): Promise<{ success: boolean; data?: RecognitionResult[]; error?: string }> {
     const { apiBaseUrl, apiKey, model } = settings;
 
@@ -41,15 +42,16 @@ IMPORTANT RULES:
 5. **AMOUNT CALCULATION**: For split transactions, calculate the subtotal for each category group accurately.
 6. **MERCHANT vs SUMMARY**:
    - **merchant**: Write the PLATFORM/STORE name (e.g., "Amazon", "Instacart", "Walmart")
-   - **summary**: Write SPECIFIC ITEMS purchased with brand/product details (e.g., "FoodBasic:[and some details]")
+   - **summary**: Write SPECIFIC items purchased with brand/product details (e.g., "FoodBasic:[and some details]")
 7. **LANGUAGE SUPPORT**: Support both English and Chinese input. Output summary/merchant in the language of the input or receipt.
-8. Return a strict JSON ARRAY of transaction objects.
+8. **DEFAULT CURRENCY**: If the currency is not explicitly stated in the image or text, use "${defaultCurrency}".
+9. Return a strict JSON ARRAY of transaction objects.
 
 Output Format:
 [
   {
     "amount": number,           // Subtotal for this category
-    "currency": "ISO_CODE",     // e.g., USD, CNY, EUR
+    "currency": "ISO_CODE",     // e.g., USD, CNY, EUR. Default to ${defaultCurrency} if not found.
     "merchant": "string",       // PLATFORM/STORE name (Amazon, Instacart, Walmart, etc.)
     "date": "YYYY-MM-DD",      // Transaction date. If not visible, use ${today}
     "category": "string",       // Category name
@@ -69,8 +71,8 @@ EXAMPLES:
 - Single receipt with only one category → Return 1 object
 - Amazon receipt: merchant="Amazon", summary="美的加湿器, 飞利浦电动牙刷"
 - Instacart receipt: merchant="Instacart", summary="FoodBasic牛奶, 鸡蛋, 有机苹果"
-- Text: "Paid $25 for lunch at Chipotle" → Return 1 object with category "Food"
-- Text: "午饭 麦当劳 35元" → Return 1 object with category "Food", amount 35, currency "CNY"`;
+- Text: "Paid $25 for lunch at Chipotle" → Return 1 object with category "Food", currency "USD"
+- Text: "午饭 麦当劳 35" → Return 1 object with category "Food", amount 35, currency "${defaultCurrency}"`;
 
     if (!apiKey) {
         console.error('[recognizeReceipt] API Key is missing');

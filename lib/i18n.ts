@@ -106,6 +106,10 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'auth.name_label': 'Full Name',
         'auth.creating_account': 'Creating account...',
         'auth.already_have_account': 'Already have an account?',
+
+        'transactions.edit': 'Edit Transaction',
+        'transactions.update': 'Update',
+        'transactions.cancel_edit': 'Cancel',
     },
     zh: {
         'nav.home': '首页',
@@ -209,6 +213,10 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'transactions.empty': '暂无交易记录。',
         'transactions.confirm_delete': '确定要删除这条交易吗？',
         'transactions.date_format': 'yyyy年M月d日',
+
+        'transactions.edit': '编辑交易',
+        'transactions.update': '更新',
+        'transactions.cancel_edit': '取消',
     }
 };
 
