@@ -32,7 +32,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'add.merchant': 'Merchant',
         'add.note': 'Note',
         'add.save': 'Save Transaction',
-        'add.analyzing': 'Analyzing receipt...',
+
         'add.take_photo': 'Take a photo or upload',
         'add.upload_receipt': 'Upload Receipt',
         'add.upload_desc': 'Upload a receipt to automatically extract details.',
@@ -44,7 +44,13 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'reports.by_category': 'Expenses by Category',
         'reports.trend': 'Spending Trend (Last 7 Days)',
 
-        'recurring.title': 'Recurring Payments',
+        'add.scan_text_label': 'Transaction Details',
+        'add.scan_text_placeholder': 'Describe the transaction (e.g., "Lunch $15") or paste text...',
+        'add.scan_image_label': 'Upload Image (Optional)',
+        'add.scan_button': 'Scan',
+        'add.analyzing': 'Analyzing...',
+
+        'recurring.title': 'Recurring Rules',
         'recurring.desc': 'Manage subscriptions and fixed expenses.',
         'recurring.add_button': 'Add Recurring Bill',
         'recurring.add_rule': 'Add Rule',
@@ -55,6 +61,8 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'recurring.start_date': 'Start Date',
         'recurring.next': 'Next',
         'recurring.empty': 'No recurring bills set up yet.',
+        'recurring.scan_text_label': 'Recurring Bill Details',
+        'recurring.scan_text_placeholder': 'Describe the recurring bill (e.g., "Netflix $15/month")...',
 
         'settings.title': 'Settings',
         'settings.desc': 'Configure AI and application preferences.',
@@ -128,7 +136,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'add.merchant': '商家',
         'add.note': '备注',
         'add.save': '保存交易',
-        'add.analyzing': '正在分析小票...',
+
         'add.take_photo': '拍照或上传',
         'add.upload_receipt': '上传小票',
         'add.upload_desc': '上传小票自动识别详情。',
@@ -139,6 +147,13 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'reports.desc': '分析您的消费习惯。',
         'reports.by_category': '分类支出占比',
         'reports.trend': '近7天消费趋势',
+
+        'add.scan_text_label': '交易详情',
+        'add.scan_text_placeholder': '描述交易内容（如“午饭 15元”）或粘贴文本...',
+        'add.scan_image_label': '上传图片（可选）',
+        'add.scan_button': '开始识别',
+        'add.analyzing': '正在分析...',
+
 
         'recurring.title': '周期账单',
         'recurring.desc': '管理订阅和固定支出。',
@@ -151,6 +166,8 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'recurring.start_date': '开始日期',
         'recurring.next': '下次',
         'recurring.empty': '暂无周期账单。',
+        'recurring.scan_text_label': '周期账单详情',
+        'recurring.scan_text_placeholder': '描述周期账单（如“Netflix 15元/月”）...',
 
         'settings.title': '设置',
         'settings.desc': '配置 AI 和应用偏好。',

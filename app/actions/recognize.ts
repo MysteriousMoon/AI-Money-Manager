@@ -42,7 +42,8 @@ IMPORTANT RULES:
 6. **MERCHANT vs SUMMARY**:
    - **merchant**: Write the PLATFORM/STORE name (e.g., "Amazon", "Instacart", "Walmart")
    - **summary**: Write SPECIFIC ITEMS purchased with brand/product details (e.g., "FoodBasic:[and some details]")
-7. Return a strict JSON ARRAY of transaction objects.
+7. **LANGUAGE SUPPORT**: Support both English and Chinese input. Output summary/merchant in the language of the input or receipt.
+8. Return a strict JSON ARRAY of transaction objects.
 
 Output Format:
 [
@@ -68,7 +69,8 @@ EXAMPLES:
 - Single receipt with only one category → Return 1 object
 - Amazon receipt: merchant="Amazon", summary="美的加湿器, 飞利浦电动牙刷"
 - Instacart receipt: merchant="Instacart", summary="FoodBasic牛奶, 鸡蛋, 有机苹果"
-- Text: "Paid $25 for lunch at Chipotle" → Return 1 object with category "Food"`;
+- Text: "Paid $25 for lunch at Chipotle" → Return 1 object with category "Food"
+- Text: "午饭 麦当劳 35元" → Return 1 object with category "Food", amount 35, currency "CNY"`;
 
     if (!apiKey) {
         console.error('[recognizeReceipt] API Key is missing');

@@ -31,7 +31,8 @@ IMPORTANT RULES:
 3. **Start Date**: If a specific due date or start date is visible, use it. Otherwise use ${today}.
 4. **TEXT-ONLY MODE**: If NO images are provided but text is given, parse the text to extract recurring payment details.
 5. **TEXT AS CONTEXT**: If BOTH images and text are provided, use the text to clarify unclear information in the images.
-6. Return a strict JSON ARRAY of recurring rule objects.
+6. **LANGUAGE SUPPORT**: Support both English and Chinese input. Output name/category in the language of the input or receipt.
+7. Return a strict JSON ARRAY of recurring rule objects.
 
 Output Format:
 [
@@ -53,7 +54,8 @@ Context:
 EXAMPLES:
 - "Netflix $15.99/mo" -> { name: "Netflix", amount: 15.99, frequency: "MONTHLY", ... }
 - "Yearly Gym Membership $500" -> { name: "Gym", amount: 500, frequency: "YEARLY", ... }
-- Text: "Spotify premium 9.99 per month" -> { name: "Spotify", amount: 9.99, frequency: "MONTHLY", ... }`;
+- Text: "Spotify premium 9.99 per month" -> { name: "Spotify", amount: 9.99, frequency: "MONTHLY", ... }
+- Text: "房租 3000元 每月" -> { name: "房租", amount: 3000, currency: "CNY", frequency: "MONTHLY", ... }`;
 
     if (!apiKey) return { success: false, error: 'API Key is missing.' };
     if (!apiBaseUrl) return { success: false, error: 'API Base URL is missing.' };

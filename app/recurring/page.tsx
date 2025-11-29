@@ -338,7 +338,7 @@ export default function RecurringPage() {
                                 activeTab === 'manual' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                             )}
                         >
-                            Manual Entry
+                            {t('add.manual')}
                         </button>
                         <button
                             onClick={() => setActiveTab('scan')}
@@ -348,7 +348,7 @@ export default function RecurringPage() {
                             )}
                         >
                             <Camera className="h-4 w-4" />
-                            AI Scan
+                            {t('add.scan')}
                         </button>
                     </div>
 
@@ -441,80 +441,80 @@ export default function RecurringPage() {
                             </div>
                         </form>
                     ) : (
-                        <div className="space-y-6 py-4">
-                            <div
-                                onClick={() => fileInputRef.current?.click()}
-                                className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-muted/50 transition-colors"
-                            >
-                                <input
-                                    type="file"
-                                    ref={fileInputRef}
-                                    className="hidden"
-                                    accept="image/*"
-                                    multiple
-                                    onChange={handleFileChange}
-                                />
-                                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary">
-                                    <Upload className="h-6 w-6" />
-                                </div>
-                                <h3 className="font-semibold mb-1">Upload Subscription/Bill</h3>
-                                <p className="text-sm text-muted-foreground">
-                                    Take a screenshot of your subscription details or bill.
-                                </p>
-                            </div>
-
-                            {previewUrls.length > 0 && (
-                                <div className="grid grid-cols-3 gap-4">
-                                    {previewUrls.map((url, index) => (
-                                        <div key={index} className="relative aspect-square rounded-lg overflow-hidden border bg-background">
-                                            <img src={url} alt="Preview" className="w-full h-full object-cover" />
-                                            <button
-                                                onClick={() => handleRemoveImage(index)}
-                                                className="absolute top-1 right-1 p-1 bg-black/50 rounded-full text-white hover:bg-red-500 transition-colors"
-                                            >
-                                                <X className="h-3 w-3" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
+                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <div>
-                                <label className="text-sm font-medium mb-2 block">补充文字说明 (可选)</label>
+                                <label className="text-sm font-medium mb-2 block">{t('recurring.scan_text_label')}</label>
                                 <textarea
                                     value={scanText}
                                     onChange={(e) => setScanText(e.target.value)}
-                                    placeholder="可以粘贴或输入文字说明，帮助AI更准确识别..."
-                                    className="w-full h-20 rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
+                                    placeholder={t('recurring.scan_text_placeholder')}
+                                    className="w-full h-24 rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                                 />
                             </div>
 
-                            <div className="flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    onClick={resetForm}
-                                    className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleScan}
-                                    disabled={(previewUrls.length === 0 && !scanText.trim()) || isScanning}
-                                    className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                >
-                                    {isScanning ? (
-                                        <>
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                            Analyzing...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Camera className="h-4 w-4" />
-                                            Scan & Auto-Fill
-                                        </>
-                                    )}
-                                </button>
+                            <div>
+                                <label className="text-sm font-medium mb-2 block">{t('add.scan_image_label')}</label>
+                                {previewUrls.length > 0 ? (
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {previewUrls.map((url, idx) => (
+                                            <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border bg-muted group">
+                                                <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                                                <button
+                                                    onClick={() => handleRemoveImage(idx)}
+                                                    className="absolute top-1 right-1 bg-destructive/90 text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <button
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary hover:bg-muted/50 flex flex-col items-center justify-center gap-1 transition-colors"
+                                        >
+                                            <Plus className="h-6 w-6 text-muted-foreground" />
+                                            <span className="text-xs text-muted-foreground">{t('add.upload_receipt')}</span>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center space-y-4 py-8 border-2 border-dashed rounded-xl border-muted-foreground/25 bg-muted/50">
+                                        <div className="h-16 w-16 bg-background rounded-full flex items-center justify-center shadow-sm">
+                                            <Camera className="h-8 w-8 text-muted-foreground" />
+                                        </div>
+                                        <button
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-4"
+                                        >
+                                            <Upload className="mr-2 h-4 w-4" />
+                                            {t('add.upload_receipt')}
+                                        </button>
+                                    </div>
+                                )}
                             </div>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                accept="image/*"
+                                multiple
+                                onChange={handleFileChange}
+                            />
+                            <button
+                                onClick={handleScan}
+                                disabled={(previewUrls.length === 0 && !scanText.trim()) || isScanning}
+                                className="w-full inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-12 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isScanning ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        {t('add.analyzing')}
+                                    </>
+                                ) : (
+                                    <>
+                                        <Camera className="mr-2 h-4 w-4" />
+                                        {t('add.scan_button')}
+                                    </>
+                                )}
+                            </button>
                         </div>
                     )}
                 </div>

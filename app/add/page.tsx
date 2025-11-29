@@ -473,29 +473,24 @@ function AddTransactionContent() {
 
             {activeTab === 'scan' ? (
                 <div className="space-y-4">
-                    {isScanning ? (
-                        <div className="flex flex-col items-center justify-center space-y-8 py-12 border-2 border-dashed rounded-xl border-muted-foreground/25 bg-muted/50">
-                            <div className="text-center space-y-4">
-                                <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-                                <p className="text-muted-foreground animate-pulse">{t('add.analyzing')}</p>
-                            </div>
+                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div>
+                            <label className="text-sm font-medium mb-2 block">{t('add.scan_text_label')}</label>
+                            <textarea
+                                value={scanText}
+                                onChange={(e) => setScanText(e.target.value)}
+                                placeholder={t('add.scan_text_placeholder')}
+                                className="w-full h-24 rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            />
                         </div>
-                    ) : previewUrls.length > 0 ? (
-                        <>
-                            <div className="border-2 border-dashed rounded-xl border-muted-foreground/25 bg-muted/50 p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                    <h3 className="text-sm font-medium">已选择 {previewUrls.length} 张图片</h3>
-                                    <button
-                                        onClick={() => setPreviewUrls([])}
-                                        className="text-xs text-muted-foreground hover:text-foreground"
-                                    >
-                                        清空
-                                    </button>
-                                </div>
-                                <div className="grid grid-cols-3 gap-3">
+
+                        <div>
+                            <label className="text-sm font-medium mb-2 block">{t('add.scan_image_label')}</label>
+                            {previewUrls.length > 0 ? (
+                                <div className="grid grid-cols-3 gap-2">
                                     {previewUrls.map((url, idx) => (
-                                        <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border bg-background group">
-                                            <img src={url} alt={`Receipt ${idx + 1}`} className="object-cover w-full h-full" />
+                                        <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border bg-muted group">
+                                            <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
                                             <button
                                                 onClick={() => handleRemoveImage(idx)}
                                                 className="absolute top-1 right-1 bg-destructive/90 text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -509,66 +504,51 @@ function AddTransactionContent() {
                                         className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary hover:bg-muted/50 flex flex-col items-center justify-center gap-1 transition-colors"
                                     >
                                         <Plus className="h-6 w-6 text-muted-foreground" />
-                                        <span className="text-xs text-muted-foreground">添加</span>
+                                        <span className="text-xs text-muted-foreground">{t('add.upload_receipt')}</span>
                                     </button>
                                 </div>
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium mb-2 block">补充文字说明 (可选)</label>
-                                <textarea
-                                    value={scanText}
-                                    onChange={(e) => setScanText(e.target.value)}
-                                    placeholder="可以粘贴或输入文字说明，帮助AI更准确识别..."
-                                    className="w-full h-20 rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
-                                />
-                            </div>
-                            <button
-                                onClick={handleStartRecognition}
-                                className="w-full inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-12"
-                            >
-                                <Camera className="mr-2 h-4 w-4" />
-                                开始识别 ({previewUrls.length} 张)
-                            </button>
-                        </>
-                    ) : (
-                        <div className="space-y-4">
-                            <div className="flex flex-col items-center justify-center space-y-8 py-12 border-2 border-dashed rounded-xl border-muted-foreground/25 bg-muted/50">
-                                <div className="h-32 w-32 bg-background rounded-full flex items-center justify-center shadow-sm">
-                                    <Camera className="h-12 w-12 text-muted-foreground" />
+                            ) : (
+                                <div className="flex flex-col items-center justify-center space-y-4 py-8 border-2 border-dashed rounded-xl border-muted-foreground/25 bg-muted/50">
+                                    <div className="h-16 w-16 bg-background rounded-full flex items-center justify-center shadow-sm">
+                                        <Camera className="h-8 w-8 text-muted-foreground" />
+                                    </div>
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-4"
+                                    >
+                                        <Upload className="mr-2 h-4 w-4" />
+                                        {t('add.upload_receipt')}
+                                    </button>
                                 </div>
-                                <div className="text-center space-y-2">
-                                    <h3 className="font-medium">{t('add.take_photo')}</h3>
-                                    <p className="text-xs text-muted-foreground max-w-[200px]">
-                                        支持一次上传多张图片进行识别
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-8"
-                                >
-                                    <Upload className="mr-2 h-4 w-4" />
-                                    {t('add.upload_receipt')}
-                                </button>
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium mb-2 block">补充文字说明 (可选)</label>
-                                <textarea
-                                    value={scanText}
-                                    onChange={(e) => setScanText(e.target.value)}
-                                    placeholder="可以粘贴或输入文字说明，帮助AI更准确识别..."
-                                    className="w-full h-20 rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
-                                />
-                            </div>
+                            )}
                         </div>
-                    )}
-                    <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className="hidden"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
-                    />
+
+                        <button
+                            onClick={handleStartRecognition}
+                            disabled={previewUrls.length === 0 && !scanText.trim()}
+                            className="w-full inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-12 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isScanning ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    {t('add.analyzing')}
+                                </>
+                            ) : (
+                                <>
+                                    <Camera className="mr-2 h-4 w-4" />
+                                    {t('add.scan_button')}
+                                </>
+                            )}
+                        </button>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                        />
+                    </div>
                 </div>
             ) : (
                 <form onSubmit={handleManualSubmit} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
