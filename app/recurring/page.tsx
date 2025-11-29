@@ -125,7 +125,7 @@ export default function RecurringPage() {
                     categoryId: rule.categoryId,
                     date: rule.nextDueDate,
                     merchant: rule.name,
-                    type: 'EXPENSE',
+                    type: categories.find(c => c.id === rule.categoryId)?.type as 'EXPENSE' | 'INCOME' || 'EXPENSE',
                     source: 'RECURRING',
                     note: 'Auto-generated recurring bill',
                 };

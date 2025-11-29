@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { useStore } from '@/lib/store';
 import { useCurrencyTotal } from '@/hooks/useCurrencyTotal';
-import { Plus, ScanLine, ArrowUpRight, ArrowDownRight, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, ScanLine, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/currency';
 import { cn, parseLocalDate } from '@/lib/utils';
@@ -34,7 +34,6 @@ export default function Dashboard() {
   }), [transactions, currentMonth, currentYear]);
 
   const thisMonthExpenses = useMemo(() => thisMonthTransactions.filter(t => t.type === 'EXPENSE'), [thisMonthTransactions]);
-  const lastMonthExpenses = useMemo(() => lastMonthTransactions.filter(t => t.type === 'EXPENSE'), [lastMonthTransactions]);
   const thisMonthIncomeList = useMemo(() => thisMonthTransactions.filter(t => t.type === 'INCOME'), [thisMonthTransactions]);
 
   const { total: thisMonthTotal, loading: loadingThis } = useCurrencyTotal(
@@ -42,20 +41,14 @@ export default function Dashboard() {
     settings
   );
 
-  const { total: lastMonthTotal, loading: loadingLast } = useCurrencyTotal(
-    lastMonthExpenses,
-    settings
-  );
+
 
   const { total: thisMonthIncome, loading: loadingIncome } = useCurrencyTotal(
     thisMonthIncomeList,
     settings
   );
 
-  // Calculate percentage change
-  const percentChange = lastMonthTotal > 0
-    ? ((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100
-    : 0;
+
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -80,21 +73,27 @@ export default function Dashboard() {
       <div className="bg-primary text-primary-foreground rounded-2xl p-6 shadow-lg relative overflow-hidden">
         <div className="absolute top-0 right-0 p-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-3xl pointer-events-none" />
 
-        <div className="relative z-10">
-          <p className="text-primary-foreground/80 text-sm font-medium mb-1">{t('dashboard.total_expenses')}</p>
-          <div className="text-4xl font-bold tracking-tight">
-            {loadingThis ? '...' : formatCurrency(thisMonthTotal, settings.currency)}
+        <div className="relative z-10 grid grid-cols-2 gap-8 items-center">
+          <div className="pr-8">
+            <p className="text-primary-foreground/80 text-sm font-medium mb-1">{t('dashboard.balance')}</p>
+            <div className="text-4xl font-bold tracking-tight">
+              {loadingThis || loadingIncome ? '...' : formatCurrency(thisMonthIncome - thisMonthTotal, settings.currency)}
+            </div>
           </div>
 
-          <div className="mt-4 flex items-center gap-2 text-sm">
-            <div className={cn(
-              "flex items-center px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-sm",
-              percentChange > 0 ? "text-red-200" : "text-green-200"
-            )}>
-              {percentChange > 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
-              {Math.abs(percentChange).toFixed(1)}%
+          <div className="flex flex-col gap-2 justify-center">
+            <div className="flex justify-between items-baseline gap-4">
+              <span className="text-primary-foreground/80 text-sm font-medium">{t('dashboard.total_income')}</span>
+              <span className="text-lg font-semibold text-green-200 text-right">
+                {loadingIncome ? '...' : formatCurrency(thisMonthIncome, settings.currency)}
+              </span>
             </div>
-            <span className="text-primary-foreground/60">{t('dashboard.vs_last_month')}</span>
+            <div className="flex justify-between items-baseline gap-4">
+              <span className="text-primary-foreground/80 text-sm font-medium">{t('dashboard.total_expenses')}</span>
+              <span className="text-lg font-semibold text-red-200 text-right">
+                {loadingThis ? '...' : formatCurrency(thisMonthTotal, settings.currency)}
+              </span>
+            </div>
           </div>
         </div>
       </div>

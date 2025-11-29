@@ -227,7 +227,7 @@ function AddTransactionContent() {
                         date: data.date || new Date().toISOString().split('T')[0],
                         merchant: data.merchant || '',
                         note: data.summary || '',
-                        type: 'EXPENSE',
+                        type: matchedCategory ? (matchedCategory.type as 'EXPENSE' | 'INCOME') : 'EXPENSE',
                         source: 'AI_SCAN',
                     };
                 });
@@ -260,7 +260,7 @@ function AddTransactionContent() {
             date,
             merchant,
             note,
-            type: 'EXPENSE',
+            type: categories.find(c => c.id === categoryId)?.type as 'EXPENSE' | 'INCOME' || 'EXPENSE',
             source: 'MANUAL',
         };
         addTransaction(newTransaction);
@@ -297,7 +297,7 @@ function AddTransactionContent() {
             date: new Date().toISOString().split('T')[0],
             merchant: '',
             note: '',
-            type: 'EXPENSE',
+            type: categories[0]?.type as 'EXPENSE' | 'INCOME' || 'EXPENSE',
             source: 'MANUAL',
         };
         setPendingTransactions(prev => [...prev, newTx]);
@@ -376,7 +376,14 @@ function AddTransactionContent() {
                                     <label className="text-xs font-medium text-muted-foreground">类别</label>
                                     <select
                                         value={tx.categoryId}
-                                        onChange={(e) => handleUpdatePending(tx.id, { categoryId: e.target.value })}
+                                        onChange={(e) => {
+                                            const newCategoryId = e.target.value;
+                                            const category = categories.find(c => c.id === newCategoryId);
+                                            handleUpdatePending(tx.id, {
+                                                categoryId: newCategoryId,
+                                                type: category?.type as 'EXPENSE' | 'INCOME' || 'EXPENSE'
+                                            });
+                                        }}
                                         className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
                                     >
                                         {categories.map(c => (

@@ -51,14 +51,13 @@ export default function TransactionsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-background pb-20">
-            <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur-lg">
-                <div className="container max-w-2xl mx-auto flex h-16 items-center justify-between px-4">
-                    <h1 className="text-xl font-bold">{t('transactions.title')}</h1>
-                </div>
+        <div className="container max-w-2xl mx-auto p-4 pb-24 md:pt-24 space-y-8">
+            <header>
+                <h1 className="text-2xl font-bold">{t('transactions.title')}</h1>
+                <p className="text-muted-foreground text-sm">{t('transactions.desc')}</p>
             </header>
 
-            <main className="container max-w-2xl mx-auto px-4 py-6 space-y-6">
+            <div className="space-y-6">
                 {transactions.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground">
                         {t('transactions.empty')}
@@ -66,7 +65,7 @@ export default function TransactionsPage() {
                 ) : (
                     sortedDates.map((date) => (
                         <div key={date} className="space-y-2">
-                            <h2 className="text-sm font-medium text-muted-foreground sticky top-16 bg-background/95 py-2 z-0">
+                            <h2 className="text-sm font-medium text-muted-foreground sticky top-0 bg-background/95 py-2 z-10 backdrop-blur-sm">
                                 {(() => {
                                     // Parse date as local timezone to avoid offset issues
                                     const [year, month, day] = date.split('-').map(Number);
@@ -118,7 +117,7 @@ export default function TransactionsPage() {
                         </div>
                     ))
                 )}
-            </main>
+            </div>
         </div>
     );
 }

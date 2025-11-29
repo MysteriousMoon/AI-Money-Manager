@@ -90,14 +90,14 @@ export default function ReportsPage() {
             const catGrouped: Record<string, { id: string; value: number; original: Record<string, number> }> = {};
             let totalExpenses = 0;
 
-            // 2. Group by Date (Last 7 days)
-            const trendGrouped: Record<string, number> = {};
+            // 2. Group by Date and Category (Last 7 days)
+            const trendGrouped: Record<string, Record<string, number>> = {};
             const today = new Date();
             for (let i = 6; i >= 0; i--) {
                 const d = new Date(today);
                 d.setDate(d.getDate() - i);
                 const dateStr = formatLocalDate(d);
-                trendGrouped[dateStr] = 0;
+                trendGrouped[dateStr] = {};
             }
 
             // Process transactions
@@ -119,7 +119,7 @@ export default function ReportsPage() {
 
                 // Trend Data
                 if (trendGrouped[t.date] !== undefined) {
-                    trendGrouped[t.date] += convertedAmount;
+                    trendGrouped[t.date][catId] = (trendGrouped[t.date][catId] || 0) + convertedAmount;
                 }
             }
 
@@ -138,11 +138,11 @@ export default function ReportsPage() {
             setCategoryData(finalCatData);
 
             // Format Trend Data
-            const finalTrendData = Object.entries(trendGrouped).map(([date, amount]) => ({
+            const finalTrendData = Object.entries(trendGrouped).map(([date, catAmounts]) => ({
                 date: date.slice(5), // MM-DD
-                amount
+                ...catAmounts
             }));
-            setTrendData(finalTrendData);
+            setTrendData(finalTrendData as any);
 
             setIsLoading(false);
         };
@@ -228,9 +228,9 @@ export default function ReportsPage() {
                                     data={categoryData}
                                     cx="50%"
                                     cy="50%"
-                                    innerRadius={60}
+                                    innerRadius={0}
                                     outerRadius={80}
-                                    paddingAngle={5}
+                                    paddingAngle={0}
                                     dataKey="value"
                                 >
                                     {categoryData.map((entry, index) => (
@@ -267,9 +267,20 @@ export default function ReportsPage() {
                             <Tooltip
                                 cursor={{ fill: 'transparent' }}
                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                formatter={(value: number) => [formatCurrency(value, settings.currency), 'Amount']}
+                                formatter={(value: number, name: string) => {
+                                    const cat = categories.find(c => c.id === name);
+                                    return [formatCurrency(value, settings.currency), cat?.name || name];
+                                }}
                             />
-                            <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                            {categories.map(category => (
+                                <Bar
+                                    key={category.id}
+                                    dataKey={category.id}
+                                    stackId="a"
+                                    fill={getCategoryColor(category.id)}
+                                    radius={[0, 0, 0, 0]}
+                                />
+                            ))}
                         </BarChart>
                     </ResponsiveContainer>
                 </div>

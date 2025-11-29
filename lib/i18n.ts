@@ -11,9 +11,11 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'nav.settings': 'Settings',
 
         'dashboard.title': 'Overview',
+        'dashboard.balance': 'Balance',
         'dashboard.total_expenses': 'Total Expenses',
-        'dashboard.income': 'Income',
-        'dashboard.spending': 'Spending',
+        'dashboard.total_income': 'Total Income',
+        'dashboard.income': 'This Month Income',
+        'dashboard.spending': 'This Month Spending',
         'dashboard.vs_last_month': 'vs last month',
         'dashboard.manual_add': 'Manual Add',
         'dashboard.scan_receipt': 'Scan Receipt',
@@ -76,6 +78,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'categories.icon': 'Icon',
 
         'transactions.title': 'Transactions',
+        'transactions.desc': 'View and manage your transaction history.',
         'transactions.empty': 'No transactions found.',
         'transactions.confirm_delete': 'Are you sure you want to delete this transaction?',
         'transactions.date_format': 'MMMM d, yyyy',
@@ -104,9 +107,11 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'nav.settings': '设置',
 
         'dashboard.title': '概览',
+        'dashboard.balance': '收支平衡',
         'dashboard.total_expenses': '总支出',
-        'dashboard.income': '收入',
-        'dashboard.spending': '支出',
+        'dashboard.total_income': '总收入',
+        'dashboard.income': '本月收入',
+        'dashboard.spending': '本月支出',
         'dashboard.vs_last_month': '相比上月',
         'dashboard.manual_add': '手动记账',
         'dashboard.scan_receipt': '扫描小票',
@@ -183,6 +188,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'categories.icon': '图标',
 
         'transactions.title': '交易列表',
+        'transactions.desc': '查看和管理您的交易记录。',
         'transactions.empty': '暂无交易记录。',
         'transactions.confirm_delete': '确定要删除这条交易吗？',
         'transactions.date_format': 'yyyy年M月d日',
