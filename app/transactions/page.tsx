@@ -5,11 +5,12 @@ import { useStore } from '@/lib/store';
 import { useTranslation } from '@/lib/i18n';
 import { format } from 'date-fns';
 import { zhCN, enUS } from 'date-fns/locale';
-import { Trash2, Edit2 } from 'lucide-react';
+import { Trash2, Edit2, Download } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Transaction } from '@/types';
 import { CURRENCIES } from '@/lib/currency';
+import { exportTransactions } from '@/app/actions/transaction';
 
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
@@ -72,15 +73,46 @@ export default function TransactionsPage() {
 
     const sortedDates = Object.keys(groupedTransactions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
+    const handleExport = async () => {
+        try {
+            const result = await exportTransactions();
+            if (result.success && result.data) {
+                const blob = new Blob([result.data], { type: 'text/csv;charset=utf-8;' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } else {
+                alert('Failed to export transactions');
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            alert('An error occurred during export');
+        }
+    };
+
     if (isLoading) {
         return <LoadingSpinner />;
     }
 
     return (
         <div className="container max-w-2xl mx-auto p-4 pb-24 md:pt-24 space-y-8">
-            <header>
-                <h1 className="text-2xl font-bold">{t('transactions.title')}</h1>
-                <p className="text-muted-foreground text-sm">{t('transactions.desc')}</p>
+            <header className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold">{t('transactions.title')}</h1>
+                    <p className="text-muted-foreground text-sm">{t('transactions.desc')}</p>
+                </div>
+                <button
+                    onClick={handleExport}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-primary border border-primary rounded-md hover:bg-primary/10 transition-colors"
+                >
+                    <Download className="h-4 w-4" />
+                    {t('transactions.export')}
+                </button>
             </header>
 
             <div className="space-y-6">

@@ -109,3 +109,52 @@ export async function updateTransaction(id: string, updates: Partial<Transaction
         return { success: false, error: 'Failed to update transaction' };
     }
 }
+
+export async function exportTransactions() {
+    try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        const transactions = await prisma.transaction.findMany({
+            where: {
+                userId: user.id,
+            },
+            include: {
+                user: false, // Don't need user details
+            },
+            orderBy: {
+                date: 'desc',
+            },
+        });
+
+        // Get categories to map names
+        const categories = await prisma.category.findMany({
+            where: { userId: user.id },
+        });
+        const categoryMap = new Map(categories.map(c => [c.id, c.name]));
+
+        // Generate CSV
+        const headers = ['Date', 'Type', 'Category', 'Amount', 'Currency', 'Merchant', 'Note', 'Source'];
+        const rows = transactions.map(t => {
+            const categoryName = categoryMap.get(t.categoryId) || 'Unknown';
+            return [
+                t.date,
+                t.type,
+                `"${categoryName.replace(/"/g, '""')}"`, // Escape quotes
+                t.amount.toFixed(2),
+                t.currencyCode,
+                `"${(t.merchant || '').replace(/"/g, '""')}"`,
+                `"${(t.note || '').replace(/"/g, '""')}"`,
+                t.source
+            ].join(',');
+        });
+
+        const csvContent = [headers.join(','), ...rows].join('\n');
+        return { success: true, data: csvContent };
+    } catch (error) {
+        console.error('Failed to export transactions:', error);
+        return { success: false, error: 'Failed to export transactions' };
+    }
+}

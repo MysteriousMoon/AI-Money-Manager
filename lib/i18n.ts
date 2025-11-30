@@ -110,6 +110,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'transactions.edit': 'Edit Transaction',
         'transactions.update': 'Update',
         'transactions.cancel_edit': 'Cancel',
+        'transactions.export': 'Export CSV',
     },
     zh: {
         'nav.home': '首页',
@@ -217,6 +218,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'transactions.edit': '编辑交易',
         'transactions.update': '更新',
         'transactions.cancel_edit': '取消',
+        'transactions.export': '导出 CSV',
     }
 };
 
