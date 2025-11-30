@@ -1,14 +1,17 @@
 import { create } from 'zustand';
 import { Transaction, Category, RecurringRule, AppSettings, DEFAULT_CATEGORIES, DEFAULT_SETTINGS } from '@/types';
+import { Investment } from '@prisma/client';
 import { getTransactions, addTransaction, deleteTransaction } from '@/app/actions/transaction';
 import { getCategories, addCategory, deleteCategory, updateCategory } from '@/app/actions/category';
 import { getSettings, updateSettings } from '@/app/actions/settings';
 import { getRecurringRules, addRecurringRule, updateRecurringRule, deleteRecurringRule } from '@/app/actions/recurring';
+import { getInvestments } from '@/app/actions/investment';
 
 interface AppState {
     transactions: Transaction[];
     categories: Category[];
     recurringRules: RecurringRule[];
+    investments: Investment[];
     settings: AppSettings;
     isLoading: boolean;
 
@@ -27,6 +30,11 @@ interface AppState {
     updateRecurringRule: (id: string, updates: Partial<RecurringRule>) => Promise<void>;
     deleteRecurringRule: (id: string) => Promise<void>;
 
+    addInvestment: (investment: Omit<Investment, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+    updateInvestment: (id: string, updates: Partial<Investment>) => Promise<void>;
+    deleteInvestment: (id: string) => Promise<void>;
+    closeInvestment: (id: string, finalAmount: number, endDate: string) => Promise<void>;
+
     updateSettings: (updates: Partial<AppSettings>) => Promise<void>;
 }
 
@@ -40,11 +48,12 @@ export const useStore = create<AppState>((set, get) => ({
     fetchInitialData: async () => {
         set({ isLoading: true });
         try {
-            const [txRes, catRes, setRes, recRes] = await Promise.all([
+            const [txRes, catRes, setRes, recRes, invRes] = await Promise.all([
                 getTransactions(),
                 getCategories(),
                 getSettings(),
-                getRecurringRules()
+                getRecurringRules(),
+                getInvestments()
             ]);
 
             set({
@@ -58,6 +67,7 @@ export const useStore = create<AppState>((set, get) => ({
                     type: c.type as Category['type']
                 })) : DEFAULT_CATEGORIES,
                 recurringRules: recRes.success && recRes.data ? recRes.data as RecurringRule[] : [],
+                investments: invRes.success && invRes.data ? invRes.data : [],
                 settings: setRes.success && setRes.data ? setRes.data as AppSettings : DEFAULT_SETTINGS,
                 isLoading: false
             });
@@ -133,5 +143,73 @@ export const useStore = create<AppState>((set, get) => ({
     updateSettings: async (updates) => {
         set((state) => ({ settings: { ...state.settings, ...updates } }));
         await updateSettings(updates);
+    },
+
+    // Investment Actions
+    investments: [],
+    addInvestment: async (investment) => {
+        const res = await import('@/app/actions/investment').then(mod => mod.addInvestment(investment));
+        if (res.success && res.data) {
+            // Re-fetch investments to get the latest from the DB
+            const invRes = await getInvestments();
+            if (invRes.success && invRes.data) {
+                set({ investments: invRes.data });
+            }
+        }
+    },
+    updateInvestment: async (id, updates) => {
+        const res = await import('@/app/actions/investment').then(mod => mod.updateInvestment(id, updates));
+        if (res.success) {
+            // Re-fetch investments after successful update
+            const invRes = await getInvestments();
+            if (invRes.success && invRes.data) {
+                set({ investments: invRes.data });
+            }
+        }
+    },
+    deleteInvestment: async (id) => {
+        const res = await import('@/app/actions/investment').then(mod => mod.deleteInvestment(id));
+        if (res.success) {
+            // Re-fetch both investments and transactions after successful delete
+            // (since related transactions are also deleted)
+            const invRes = await getInvestments();
+            const txRes = await getTransactions();
+
+            if (invRes.success && invRes.data) {
+                set({ investments: invRes.data });
+            }
+
+            if (txRes.success && txRes.data) {
+                set({
+                    transactions: txRes.data.map((tx: any) => ({
+                        ...tx,
+                        note: tx.note ?? undefined,
+                        merchant: tx.merchant ?? undefined
+                    }))
+                });
+            }
+        }
+    },
+    closeInvestment: async (id, finalAmount, endDate) => {
+        const res = await import('@/app/actions/investment').then(mod => mod.closeInvestment(id, finalAmount, endDate));
+        if (res.success) {
+            // Refresh both investments and transactions
+            const invRes = await getInvestments();
+            const txRes = await getTransactions();
+
+            if (invRes.success && invRes.data) {
+                set({ investments: invRes.data });
+            }
+
+            if (txRes.success && txRes.data) {
+                set({
+                    transactions: txRes.data.map((tx: any) => ({
+                        ...tx,
+                        note: tx.note ?? undefined,
+                        merchant: tx.merchant ?? undefined
+                    }))
+                });
+            }
+        }
     }
 }));

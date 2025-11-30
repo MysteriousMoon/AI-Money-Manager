@@ -24,6 +24,7 @@ export default function TransactionsPage() {
     const isLoading = useStore((state) => state.isLoading);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<Partial<Transaction>>({});
+    const [deleteId, setDeleteId] = useState<string | null>(null);
 
     const handleEdit = (transaction: typeof transactions[0]) => {
         setEditingId(transaction.id);
@@ -45,10 +46,13 @@ export default function TransactionsPage() {
         setEditForm({});
     };
 
-    const handleDelete = (id: string) => {
-        if (confirm(t('transactions.confirm_delete'))) {
-            deleteTransaction(id);
-        }
+    const handleDelete = async (id: string) => {
+        await deleteTransaction(id);
+        setDeleteId(null);
+    };
+
+    const handleDeleteClick = (id: string) => {
+        setDeleteId(id);
     };
 
     const getCategoryIcon = (categoryId: string) => {
@@ -153,7 +157,6 @@ export default function TransactionsPage() {
                                                         <div>
                                                             <div className="flex items-center gap-2">
                                                                 <p className="font-medium">{transaction.merchant || getCategoryName(transaction.categoryId)}</p>
-                                                                <span className="uppercase text-[10px] border px-1 rounded">{transaction.currencyCode || 'CNY'}</span>
                                                             </div>
                                                             <p className="text-xs text-muted-foreground">
                                                                 {transaction.note && <span>{transaction.note}</span>}
@@ -161,13 +164,21 @@ export default function TransactionsPage() {
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        <span className={cn(
-                                                            "font-bold mr-2",
+                                                        <div className={cn(
+                                                            "flex items-baseline gap-0.5 font-bold mr-2",
                                                             transaction.type === 'EXPENSE' ? "text-red-500" : "text-green-500"
                                                         )}>
-                                                            {transaction.type === 'EXPENSE' ? '-' : '+'}
-                                                            {transaction.amount.toFixed(2)}
-                                                        </span>
+                                                            <span className="text-sm">
+                                                                {transaction.type === 'EXPENSE' ? '-' : '+'}
+                                                                {CURRENCIES.find(c => c.code === (transaction.currencyCode || 'CNY'))?.symbol}
+                                                            </span>
+                                                            <span className="text-base">
+                                                                {transaction.amount.toFixed(2)}
+                                                            </span>
+                                                            <span className="text-[10px] font-normal text-muted-foreground ml-1">
+                                                                {transaction.currencyCode || 'CNY'}
+                                                            </span>
+                                                        </div>
                                                         <button
                                                             onClick={() => handleEdit(transaction)}
                                                             className="p-2 text-muted-foreground hover:text-primary transition-colors"
@@ -176,7 +187,7 @@ export default function TransactionsPage() {
                                                             <Edit2 className="h-4 w-4" />
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDelete(transaction.id)}
+                                                            onClick={() => handleDeleteClick(transaction.id)}
                                                             className="p-2 text-muted-foreground hover:text-destructive transition-colors"
                                                             aria-label="Delete transaction"
                                                         >
@@ -283,6 +294,31 @@ export default function TransactionsPage() {
                     ))
                 )}
             </div>
+
+            {/* Delete Confirmation Modal */}
+            {deleteId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-lg space-y-4 animate-in zoom-in-95">
+                        <h2 className="text-lg font-bold">{t('transactions.confirm_delete')}</h2>
+                        <div className="flex justify-end gap-2 pt-4">
+                            <button
+                                type="button"
+                                onClick={() => setDeleteId(null)}
+                                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                            >
+                                {t('transactions.cancel_edit')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleDelete(deleteId)}
+                                className="px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

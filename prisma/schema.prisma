@@ -10,21 +10,24 @@ datasource db {
 }
 
 model Transaction {
-  id           String   @id @default(uuid())
+  id           String      @id @default(uuid())
   userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   amount       Float
-  currencyCode String   @default("CNY")
+  currencyCode String      @default("CNY")
   categoryId   String
-  date         String   // Storing as ISO string YYYY-MM-DD for simplicity, or DateTime
+  date         String      // Storing as ISO string YYYY-MM-DD for simplicity, or DateTime
   note         String?
   merchant     String?
-  type         String   // 'EXPENSE' | 'INCOME'
-  source       String   // 'MANUAL' | 'AI_SCAN' | 'RECURRING'
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  type         String      // 'EXPENSE' | 'INCOME'
+  source       String      // 'MANUAL' | 'AI_SCAN' | 'RECURRING'
+  investmentId String?     // Optional: linked investment for tracking
+  investment   Investment? @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   @@index([userId])
+  @@index([investmentId])
   @@map("transactions")
 }
 
@@ -92,7 +95,30 @@ model User {
   transactions   Transaction[]
   categories     Category[]
   recurringRules RecurringRule[]
+  investments    Investment[]
   settings       Settings?
 
   @@map("users")
+}
+
+model Investment {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  type          String   // 'STOCK' | 'DEPOSIT' | 'FUND' | 'OTHER'
+  initialAmount Float
+  currentAmount Float?   // For tracking market value
+  currencyCode  String   @default("CNY")
+  interestRate  Float?   // For deposits (e.g., 2.5 for 2.5%)
+  startDate     String
+  endDate       String?
+  status        String   @default("ACTIVE") // 'ACTIVE' | 'CLOSED'
+  note          String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  transactions  Transaction[] // Related transactions
+
+  @@index([userId])
+  @@map("investments")
 }
