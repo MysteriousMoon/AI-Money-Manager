@@ -322,9 +322,31 @@ export default function RecurringPage() {
 
     return (
         <div className="container max-w-2xl mx-auto p-4 pb-24 md:pt-24 space-y-6">
-            <header>
-                <h1 className="text-2xl font-bold">{t('recurring.title')}</h1>
-                <p className="text-muted-foreground text-sm">{t('recurring.desc')}</p>
+            <header className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold">{t('recurring.title')}</h1>
+                    <p className="text-muted-foreground text-sm">{t('recurring.desc')}</p>
+                </div>
+                <button
+                    onClick={() => {
+                        if (isAdding) {
+                            setIsAdding(false);
+                            setEditingId(null);
+                        } else {
+                            setCurrencyCode(settings.currency);
+                            setIsAdding(true);
+                        }
+                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                >
+                    {isAdding ? (
+                        <span className="flex items-center gap-1">{t('recurring.cancel')}</span>
+                    ) : (
+                        <span className="flex items-center gap-1">
+                            <Plus className="h-4 w-4" /> {t('recurring.add_button')}
+                        </span>
+                    )}
+                </button>
             </header>
 
             {/* Add Form (only for adding new, not editing) */}
@@ -521,18 +543,7 @@ export default function RecurringPage() {
                 </div>
             )}
 
-            {!isAdding && !editingId && (
-                <button
-                    onClick={() => {
-                        setCurrencyCode(settings.currency);
-                        setIsAdding(true);
-                    }}
-                    className="w-full py-3 border-2 border-dashed border-muted-foreground/25 rounded-lg text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors flex items-center justify-center gap-2 font-medium"
-                >
-                    <Plus className="h-4 w-4" />
-                    {t('recurring.add_button')}
-                </button>
-            )}
+
 
             <div className="space-y-3">
                 {recurringRules.map((rule) => {

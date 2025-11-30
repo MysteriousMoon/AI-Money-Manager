@@ -13,6 +13,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
 
         'dashboard.title': 'Overview',
         'dashboard.balance': 'Balance',
+        'dashboard.invested': 'Invested',
         'dashboard.total_expenses': 'Total Expenses',
         'dashboard.total_income': 'Total Income',
         'dashboard.income': 'This Month Income',
@@ -160,6 +161,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
 
         'dashboard.title': '概览',
         'dashboard.balance': '收支平衡',
+        'dashboard.invested': '已投资',
         'dashboard.total_expenses': '总支出',
         'dashboard.total_income': '总收入',
         'dashboard.income': '本月收入',

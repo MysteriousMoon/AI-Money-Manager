@@ -65,8 +65,8 @@ export default function ReportsPage() {
 
     const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
 
-    // Filter to only show Expense categories
-    const expenseCategories = categories.filter(c => c.type === 'EXPENSE');
+    // Filter to only show Expense categories, excluding Investment
+    const expenseCategories = categories.filter(c => c.type === 'EXPENSE' && c.name !== 'Investment');
 
     // Helper to get stable color for a category
     const getCategoryColor = (categoryId: string) => {
@@ -86,6 +86,7 @@ export default function ReportsPage() {
             setIsLoading(true);
             const expenses = transactions.filter(t =>
                 t.type === 'EXPENSE' &&
+                !t.investmentId && // Exclude investment transactions
                 (selectedCategoryIds.length === 0 || selectedCategoryIds.includes(t.categoryId))
             );
 

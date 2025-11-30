@@ -12,7 +12,7 @@ import { useTranslation } from '@/lib/i18n';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function Dashboard() {
-  const { transactions, settings, categories, isLoading } = useStore();
+  const { transactions, settings, categories, isLoading, investments } = useStore();
   const { t } = useTranslation();
 
   // Filter for current month
@@ -60,6 +60,18 @@ export default function Dashboard() {
     settings
   );
 
+  // Investment Calculations
+  const activeInvestments = useMemo(() => investments.filter(i => i.status === 'ACTIVE'), [investments]);
+  const investmentItems = useMemo(() => activeInvestments.map(i => ({
+    amount: i.currentAmount ?? i.initialAmount,
+    currencyCode: i.currencyCode
+  })), [activeInvestments]);
+
+  const { total: totalInvested, loading: loadingInvested } = useCurrencyTotal(
+    investmentItems,
+    settings
+  );
+
   if (isLoading) {
     return <LoadingSpinner />;
   }
@@ -83,50 +95,64 @@ export default function Dashboard() {
       <div className="bg-primary text-primary-foreground rounded-2xl p-6 shadow-lg relative overflow-hidden">
         <div className="absolute top-0 right-0 p-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 grid grid-cols-2 gap-8 items-center">
-          <div className="pr-8">
-            <p className="text-primary-foreground/80 text-sm font-medium mb-1">{t('dashboard.balance')}</p>
-            <div className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight whitespace-nowrap">
-              {loadingAllTimeExpenses || loadingAllTimeIncome ? '...' : formatCurrency(allTimeIncome - allTimeTotal, settings.currency)}
+        <div className="relative z-10 space-y-8">
+          {/* Top Row: Balance and Invested */}
+          <div className="grid grid-cols-2 gap-8 items-center border-b border-white/10 pb-6">
+            <div className="pr-8 border-r border-white/10">
+              <p className="text-primary-foreground/80 text-sm font-medium mb-1">{t('dashboard.balance')}</p>
+              <div className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight whitespace-nowrap">
+                {loadingAllTimeExpenses || loadingAllTimeIncome ? '...' : formatCurrency(allTimeIncome - allTimeTotal, settings.currency)}
+              </div>
+            </div>
+
+            <div className="pl-4">
+              <p className="text-primary-foreground/80 text-sm font-medium mb-1">{t('dashboard.invested')}</p>
+              <div className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight whitespace-nowrap">
+                {loadingInvested ? '...' : formatCurrency(totalInvested, settings.currency)}
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 justify-center">
-            <div className="flex justify-between items-baseline gap-4">
-              <span className="text-primary-foreground/80 text-sm font-medium">{t('dashboard.total_income')}</span>
-              <span className="text-lg font-semibold text-green-200 text-right">
-                {loadingAllTimeIncome ? '...' : formatCurrency(allTimeIncome, settings.currency)}
-              </span>
+          {/* Bottom Row: Totals and Monthly */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Total Stats */}
+            <div className="flex flex-col gap-2 justify-center">
+              <div className="flex justify-between items-baseline gap-4">
+                <span className="text-primary-foreground/80 text-sm font-medium">{t('dashboard.total_income')}</span>
+                <span className="text-lg font-semibold text-green-200 text-right">
+                  {loadingAllTimeIncome ? '...' : formatCurrency(allTimeIncome, settings.currency)}
+                </span>
+              </div>
+              <div className="flex justify-between items-baseline gap-4">
+                <span className="text-primary-foreground/80 text-sm font-medium">{t('dashboard.total_expenses')}</span>
+                <span className="text-lg font-semibold text-red-200 text-right">
+                  {loadingAllTimeExpenses ? '...' : formatCurrency(allTimeTotal, settings.currency)}
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between items-baseline gap-4">
-              <span className="text-primary-foreground/80 text-sm font-medium">{t('dashboard.total_expenses')}</span>
-              <span className="text-lg font-semibold text-red-200 text-right">
-                {loadingAllTimeExpenses ? '...' : formatCurrency(allTimeTotal, settings.currency)}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-card border rounded-xl p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-2">
-            <ArrowDownRight className="h-4 w-4 text-green-500" />
-            <span className="text-xs font-medium">{t('dashboard.income')}</span>
+            {/* Monthly Stats */}
+            <div className="flex flex-col gap-2 justify-center md:pl-8 md:border-l border-white/10">
+              <div className="flex justify-between items-baseline gap-4">
+                <div className="flex items-center gap-2">
+                  <ArrowDownRight className="h-3 w-3 text-green-300" />
+                  <span className="text-primary-foreground/80 text-sm font-medium">{t('dashboard.income')}</span>
+                </div>
+                <span className="text-lg font-semibold text-green-200 text-right">
+                  {loadingIncome ? '...' : formatCurrency(thisMonthIncome, settings.currency)}
+                </span>
+              </div>
+              <div className="flex justify-between items-baseline gap-4">
+                <div className="flex items-center gap-2">
+                  <ArrowUpRight className="h-3 w-3 text-red-300" />
+                  <span className="text-primary-foreground/80 text-sm font-medium">{t('dashboard.spending')}</span>
+                </div>
+                <span className="text-lg font-semibold text-red-200 text-right">
+                  {loadingThis ? '...' : formatCurrency(thisMonthTotal, settings.currency)}
+                </span>
+              </div>
+            </div>
           </div>
-          <p className="text-xl font-bold">
-            {loadingIncome ? '...' : formatCurrency(thisMonthIncome, settings.currency)}
-          </p>
-        </div>
-        <div className="bg-card border rounded-xl p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-2">
-            <ArrowUpRight className="h-4 w-4 text-red-500" />
-            <span className="text-xs font-medium">{t('dashboard.spending')}</span>
-          </div>
-          <p className="text-xl font-bold">
-            {loadingThis ? '...' : formatCurrency(thisMonthTotal, settings.currency)}
-          </p>
         </div>
       </div>
 

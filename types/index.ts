@@ -8,6 +8,7 @@ export interface Transaction {
     merchant?: string;
     type: 'EXPENSE' | 'INCOME';
     source: 'MANUAL' | 'AI_SCAN' | 'RECURRING';
+    investmentId?: string;
 }
 
 export interface Category {

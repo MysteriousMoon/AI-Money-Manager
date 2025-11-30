@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Transaction, AppSettings } from '@/types';
 import { getExchangeRate } from '@/lib/currency';
 
-export function useCurrencyTotal(transactions: Transaction[], settings: AppSettings) {
+export function useCurrencyTotal(items: { amount: number; currencyCode: string }[], settings: AppSettings) {
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
 
@@ -16,8 +16,8 @@ export function useCurrencyTotal(transactions: Transaction[], settings: AppSetti
             // Group by currency to minimize API calls/cache lookups
             const byCurrency: Record<string, number> = {};
 
-            for (const t of transactions) {
-                byCurrency[t.currencyCode] = (byCurrency[t.currencyCode] || 0) + t.amount;
+            for (const item of items) {
+                byCurrency[item.currencyCode] = (byCurrency[item.currencyCode] || 0) + item.amount;
             }
 
             for (const [currency, amount] of Object.entries(byCurrency)) {
@@ -40,7 +40,7 @@ export function useCurrencyTotal(transactions: Transaction[], settings: AppSetti
         return () => {
             isMounted = false;
         };
-    }, [transactions, settings.currency, settings.exchangeRateApiKey]);
+    }, [items, settings.currency, settings.exchangeRateApiKey]);
 
     return { total, loading };
 }

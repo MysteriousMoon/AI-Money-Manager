@@ -15,8 +15,8 @@ export function Navbar() {
     const links = [
         { href: '/', label: t('nav.home'), icon: Home },
         { href: '/transactions', label: t('nav.transactions'), icon: List },
-        { href: '/investments', label: t('nav.investments'), icon: TrendingUp },
         { href: '/reports', label: t('nav.reports'), icon: PieChart },
+        { href: '/investments', label: t('nav.investments'), icon: TrendingUp },
         { href: '/recurring', label: t('nav.recurring'), icon: Repeat },
         { href: '/settings', label: t('nav.settings'), icon: Settings },
     ];
