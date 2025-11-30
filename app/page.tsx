@@ -97,7 +97,7 @@ export default function Dashboard() {
 
         <div className="relative z-10 space-y-8">
           {/* Top Row: Balance and Invested */}
-          <div className="grid grid-cols-2 gap-8 items-center border-b border-white/10 pb-6">
+          <div className="grid grid-cols-2 gap-0 items-center border-b border-white/10 pb-6">
             <div className="pr-8 border-r border-white/10">
               <p className="text-primary-foreground/80 text-sm font-medium mb-1">{t('dashboard.balance')}</p>
               <div className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight whitespace-nowrap">
@@ -105,7 +105,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="pl-4">
+            <div className="pl-8">
               <p className="text-primary-foreground/80 text-sm font-medium mb-1">{t('dashboard.invested')}</p>
               <div className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight whitespace-nowrap">
                 {loadingInvested ? '...' : formatCurrency(totalInvested, settings.currency)}
@@ -114,9 +114,9 @@ export default function Dashboard() {
           </div>
 
           {/* Bottom Row: Totals and Monthly */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-0">
             {/* Total Stats */}
-            <div className="flex flex-col gap-2 justify-center">
+            <div className="flex flex-col gap-2 justify-center md:pr-8 md:border-r border-white/10">
               <div className="flex justify-between items-baseline gap-4">
                 <span className="text-primary-foreground/80 text-sm font-medium">{t('dashboard.total_income')}</span>
                 <span className="text-lg font-semibold text-green-200 text-right">
@@ -132,7 +132,7 @@ export default function Dashboard() {
             </div>
 
             {/* Monthly Stats */}
-            <div className="flex flex-col gap-2 justify-center md:pl-8 md:border-l border-white/10">
+            <div className="flex flex-col gap-2 justify-center md:pl-8">
               <div className="flex justify-between items-baseline gap-4">
                 <div className="flex items-center gap-2">
                   <ArrowDownRight className="h-3 w-3 text-green-300" />
