@@ -3,15 +3,16 @@
 import { useState } from 'react';
 import { useStore } from '@/lib/store';
 import { useTranslation } from '@/lib/i18n';
-import { Plus, Trash2, Edit2, TrendingUp, TrendingDown, PiggyBank, Wallet } from 'lucide-react';
+import { Plus, Trash2, Edit2, TrendingUp, TrendingDown, PiggyBank, Wallet, Laptop } from 'lucide-react';
 import { cn, formatLocalDate } from '@/lib/utils';
 import { Investment } from '@prisma/client';
 import { CURRENCIES } from '@/lib/currency';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { calculateDepreciation } from '@/lib/depreciation';
 
 export default function InvestmentsPage() {
     const { t } = useTranslation();
-    const { investments, accounts, addInvestment, updateInvestment, deleteInvestment, closeInvestment, isLoading, settings } = useStore();
+    const { investments, accounts, addInvestment, updateInvestment, deleteInvestment, closeInvestment, recordDepreciation, isLoading, settings } = useStore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -27,18 +28,31 @@ export default function InvestmentsPage() {
     const [note, setNote] = useState('');
     const [accountId, setAccountId] = useState(accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
 
-    // Redeem State
+    // Asset specific state
+    const [purchasePrice, setPurchasePrice] = useState('');
+    const [usefulLife, setUsefulLife] = useState('');
+    const [salvageValue, setSalvageValue] = useState('');
+    const [depreciationType, setDepreciationType] = useState<'STRAIGHT_LINE' | 'DECLINING_BALANCE'>('STRAIGHT_LINE');
+
+    // Action States
     const [redeemId, setRedeemId] = useState<string | null>(null);
     const [redeemAmount, setRedeemAmount] = useState('');
-
     const [redeemDate, setRedeemDate] = useState(formatLocalDate(new Date()));
-    const [redeemAccountId, setRedeemAccountId] = useState(accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
+    const [redeemAccountId, setRedeemAccountId] = useState('');
 
-    // Delete confirmation state
+    const [updateValueId, setUpdateValueId] = useState<string | null>(null);
+    const [newValue, setNewValue] = useState('');
+
     const [deleteId, setDeleteId] = useState<string | null>(null);
 
+    // Depreciation State
+    const [depreciationId, setDepreciationId] = useState<string | null>(null);
+    const [depreciationAmount, setDepreciationAmount] = useState('');
+    const [depreciationDate, setDepreciationDate] = useState(formatLocalDate(new Date()));
 
     const resetForm = () => {
+        setIsAdding(false);
+        setEditingId(null);
         setName('');
         setType('DEPOSIT');
         setInitialAmount('');
@@ -49,8 +63,10 @@ export default function InvestmentsPage() {
         setEndDate('');
         setNote('');
         setAccountId(accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
-        setIsAdding(false);
-        setEditingId(null);
+        setPurchasePrice('');
+        setUsefulLife('');
+        setSalvageValue('');
+        setDepreciationType('STRAIGHT_LINE');
     };
 
     const handleEdit = (investment: Investment) => {
@@ -65,15 +81,19 @@ export default function InvestmentsPage() {
         setEndDate(investment.endDate || '');
         setNote(investment.note || '');
         setAccountId((investment as any).accountId || accounts.find(a => a.isDefault)?.id || '');
+        setPurchasePrice(investment.purchasePrice?.toString() || '');
+        setUsefulLife(investment.usefulLife?.toString() || '');
+        setSalvageValue(investment.salvageValue?.toString() || '');
+        setDepreciationType((investment.depreciationType as 'STRAIGHT_LINE' | 'DECLINING_BALANCE') || 'STRAIGHT_LINE');
         setIsAdding(true);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const investmentData = {
+        const investmentData: any = {
             name,
             type,
-            initialAmount: parseFloat(initialAmount),
+            initialAmount: type === 'ASSET' ? parseFloat(purchasePrice) : parseFloat(initialAmount),
             currentAmount: currentAmount ? parseFloat(currentAmount) : null,
             currencyCode,
             interestRate: interestRate ? parseFloat(interestRate) : null,
@@ -82,6 +102,11 @@ export default function InvestmentsPage() {
             note: note || null,
             accountId: accountId || null,
             status: 'ACTIVE',
+            // Asset-specific fields
+            purchasePrice: type === 'ASSET' && purchasePrice ? parseFloat(purchasePrice) : null,
+            usefulLife: type === 'ASSET' && usefulLife ? parseInt(usefulLife) : null,
+            salvageValue: type === 'ASSET' && salvageValue ? parseFloat(salvageValue) : null,
+            depreciationType: type === 'ASSET' ? depreciationType : null,
         };
 
         if (editingId) {
@@ -90,7 +115,6 @@ export default function InvestmentsPage() {
             await addInvestment(investmentData);
         }
         resetForm();
-        // Refresh page to ensure data is fully synced
         window.location.reload();
     };
 
@@ -105,23 +129,115 @@ export default function InvestmentsPage() {
 
     const handleRedeemClick = (investment: Investment) => {
         setRedeemId(investment.id);
-        const stats = calculateReturn(investment);
-        setRedeemAmount(stats.value.toFixed(2));
+        setRedeemAmount(investment.currentAmount?.toString() || investment.initialAmount.toString());
         setRedeemDate(formatLocalDate(new Date()));
+        setRedeemAccountId(accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
     };
 
     const handleRedeemSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (redeemId && redeemAmount && redeemDate) {
-            await closeInvestment(redeemId, parseFloat(redeemAmount), redeemDate, redeemAccountId || undefined);
+        if (redeemId && redeemAmount) {
+            await closeInvestment(redeemId, parseFloat(redeemAmount), redeemDate, redeemAccountId);
             setRedeemId(null);
             setRedeemAmount('');
-            setRedeemDate('');
+            window.location.reload();
+        }
+    };
+
+    const handleUpdateValueClick = (investment: Investment) => {
+        setUpdateValueId(investment.id);
+        setNewValue(investment.currentAmount?.toString() || investment.initialAmount.toString());
+    };
+
+    const handleUpdateValueSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (updateValueId && newValue) {
+            await updateInvestment(updateValueId, { currentAmount: parseFloat(newValue) });
+            setUpdateValueId(null);
+            setNewValue('');
+            window.location.reload();
+        }
+    };
+
+    const handleDepreciationClick = (investment: Investment) => {
+        // Calculate suggested depreciation based on daily rate * days since last
+        const result = calculateDepreciation(
+            investment.purchasePrice || 0,
+            investment.salvageValue || 0,
+            investment.usefulLife || 5,
+            (investment.depreciationType as any) || 'STRAIGHT_LINE',
+            investment.startDate,
+            new Date().toISOString().split('T')[0]
+        );
+
+        // Suggest daily amount for now, or maybe monthly? 
+        // Let's suggest 30 days worth if it's been a while, or just 1 day?
+        // Better: Suggest amount based on "Since Last Depreciation Date"
+        // But for simplicity, let's just show the daily rate and let user multiply?
+        // Or just pre-fill with 0 and let user decide.
+        // Actually, let's calculate the amount since last depreciation date.
+
+        const lastDate = (investment as any).lastDepreciationDate || investment.startDate;
+        const today = new Date().toISOString().split('T')[0];
+
+        // Re-calculate but with start date as lastDate? No, depreciation formula depends on total age.
+        // We need (Total Depreciation Today) - (Total Depreciation at Last Date).
+
+        const resultToday = calculateDepreciation(
+            investment.purchasePrice || 0,
+            investment.salvageValue || 0,
+            investment.usefulLife || 5,
+            (investment.depreciationType as any) || 'STRAIGHT_LINE',
+            investment.startDate,
+            today
+        );
+
+        const resultLast = calculateDepreciation(
+            investment.purchasePrice || 0,
+            investment.salvageValue || 0,
+            investment.usefulLife || 5,
+            (investment.depreciationType as any) || 'STRAIGHT_LINE',
+            investment.startDate,
+            lastDate
+        );
+
+        const suggestedAmount = Math.max(0, resultToday.accumulatedDepreciation - resultLast.accumulatedDepreciation);
+
+        setDepreciationId(investment.id);
+        setDepreciationAmount(suggestedAmount.toFixed(2));
+        setDepreciationDate(today);
+    };
+
+    const handleDepreciationSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (depreciationId && depreciationAmount) {
+            await recordDepreciation(depreciationId, parseFloat(depreciationAmount), depreciationDate);
+            setDepreciationId(null);
+            setDepreciationAmount('');
+            window.location.reload();
         }
     };
 
     const calculateReturn = (investment: Investment) => {
-        if (investment.type === 'DEPOSIT' && investment.interestRate) {
+        // Handle ASSET type with depreciation
+        if (investment.type === 'ASSET' && investment.purchasePrice && investment.salvageValue !== null && investment.usefulLife && investment.depreciationType) {
+            const depResult = calculateDepreciation(
+                investment.purchasePrice,
+                investment.salvageValue,
+                investment.usefulLife,
+                investment.depreciationType as 'STRAIGHT_LINE' | 'DECLINING_BALANCE',
+                investment.startDate
+            );
+            // For assets, the "profit" is negative (depreciation loss)
+            return {
+                value: depResult.bookValue,
+                profit: depResult.bookValue - investment.purchasePrice,
+                percent: ((depResult.bookValue - investment.purchasePrice) / investment.purchasePrice) * 100,
+                depreciation: depResult.accumulatedDepreciation,
+                dailyDepreciation: depResult.dailyDepreciation,
+                remainingLife: depResult.remainingLife
+            };
+        } else if (investment.type === 'DEPOSIT' && investment.interestRate) {
             // Simple interest estimation for display
             const principal = investment.initialAmount;
             const rate = investment.interestRate / 100;
@@ -150,7 +266,9 @@ export default function InvestmentsPage() {
     const totalCost = investments.filter(i => i.status === 'ACTIVE').reduce((sum, inv) => sum + inv.initialAmount, 0);
     const totalProfit = totalValue - totalCost;
 
-    if (isLoading) return <LoadingSpinner />;
+    if (isLoading) {
+        return <LoadingSpinner />;
+    }
 
     return (
         <div className="container max-w-2xl mx-auto p-4 pb-24 md:pt-24 space-y-8">
@@ -160,10 +278,11 @@ export default function InvestmentsPage() {
                     <p className="text-muted-foreground text-sm">{t('investments.desc')}</p>
                 </div>
                 <button
-                    onClick={() => setIsAdding(!isAdding)}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                    onClick={() => setIsAdding(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-full text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm"
                 >
-                    {isAdding ? <span className="flex items-center gap-1">{t('investments.cancel')}</span> : <span className="flex items-center gap-1"><Plus className="h-4 w-4" /> {t('investments.add')}</span>}
+                    <Plus className="h-4 w-4" />
+                    {t('investments.add')}
                 </button>
             </header>
 
@@ -181,155 +300,227 @@ export default function InvestmentsPage() {
                 </div>
             </div>
 
-            {/* Add/Edit Form */}
+            {/* Add/Edit Modal */}
             {isAdding && (
-                <form onSubmit={handleSubmit} className="p-4 rounded-lg border bg-card text-card-foreground shadow-sm space-y-4 animate-in slide-in-from-top-2">
-                    <div className="p-3 bg-muted/50 rounded-md text-sm text-muted-foreground flex items-center gap-2">
-                        <Wallet className="h-4 w-4" />
-                        {t('investments.deduct_notice')}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="text-xs font-medium text-muted-foreground">{t('investments.name')}</label>
-                            <input
-                                required
-                                type="text"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                placeholder="e.g. Apple Stock, CD"
-                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs font-medium text-muted-foreground">{t('investments.type')}</label>
-                            <select
-                                value={type}
-                                onChange={(e) => setType(e.target.value)}
-                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                            >
-                                <option value="DEPOSIT">{t('investments.type.deposit')}</option>
-                                <option value="STOCK">{t('investments.type.stock')}</option>
-                                <option value="OTHER">{t('investments.type.other')}</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="text-xs font-medium text-muted-foreground">Account</label>
-                            <select
-                                value={accountId}
-                                onChange={(e) => setAccountId(e.target.value)}
-                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                            >
-                                {accounts.map(a => (
-                                    <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-xs font-medium text-muted-foreground">{t('investments.initial_amount')}</label>
-                            <div className="flex gap-2">
-                                <select
-                                    value={currencyCode}
-                                    onChange={(e) => setCurrencyCode(e.target.value)}
-                                    className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
-                                >
-                                    {CURRENCIES.map((c) => (
-                                        <option key={c.code} value={c.code}>{c.code}</option>
-                                    ))}
-                                </select>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-lg rounded-lg bg-background p-6 shadow-lg max-h-[90vh] overflow-y-auto animate-in zoom-in-95">
+                        <h2 className="text-lg font-bold mb-4">{editingId ? t('investments.edit') : t('investments.add')}</h2>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground">{t('investments.name')}</label>
                                 <input
                                     required
-                                    type="number"
-                                    step="0.01"
-                                    value={initialAmount}
-                                    onChange={(e) => setInitialAmount(e.target.value)}
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="e.g. Apple Stock, CD"
                                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                 />
                             </div>
-                        </div>
-                        <div>
-                            <label className="text-xs font-medium text-muted-foreground">
-                                {type === 'DEPOSIT' ? t('investments.interest_rate') : t('investments.current_value')}
-                            </label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={type === 'DEPOSIT' ? interestRate : currentAmount}
-                                onChange={(e) => type === 'DEPOSIT' ? setInterestRate(e.target.value) : setCurrentAmount(e.target.value)}
-                                placeholder={type === 'DEPOSIT' ? "e.g. 3.5" : "Optional"}
-                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                            />
-                        </div>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-xs font-medium text-muted-foreground">{t('investments.start_date')}</label>
-                            <input
-                                required
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs font-medium text-muted-foreground">{t('investments.end_date')}</label>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="text-xs font-medium text-muted-foreground">{t('investments.note')}</label>
-                        <input
-                            type="text"
-                            value={note}
-                            onChange={(e) => setNote(e.target.value)}
-                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                        />
-                    </div>
-
-                    <div className="flex justify-end gap-2 pt-2">
-                        <button
-                            type="button"
-                            onClick={resetForm}
-                            className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
-                        >
-                            {t('investments.cancel')}
-                        </button>
-                        <button
-                            type="submit"
-                            className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-                        >
-                            {editingId ? t('investments.update') : t('investments.add')}
-                        </button>
-                    </div>
-                </form >
-            )
-            }
-
-            {/* Redeem Modal */}
-            {
-                redeemId && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                        <form onSubmit={handleRedeemSubmit} className="w-full max-w-md rounded-lg bg-background p-6 shadow-lg space-y-4 animate-in zoom-in-95">
-                            <h2 className="text-lg font-bold">{t('investments.redeem_title')}</h2>
-                            <p className="text-sm text-muted-foreground">{t('investments.redeem_desc')}</p>
-
-                            <div className="p-3 bg-muted/50 rounded-md text-sm text-muted-foreground flex items-center gap-2">
-                                <Wallet className="h-4 w-4" />
-                                {t('investments.return_notice')}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground">{t('investments.type')}</label>
+                                    <select
+                                        value={type}
+                                        onChange={(e) => setType(e.target.value)}
+                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                    >
+                                        <option value="DEPOSIT">{t('investments.type.deposit')}</option>
+                                        <option value="STOCK">{t('investments.type.stock')}</option>
+                                        <option value="FUND">{t('investments.type.fund')}</option>
+                                        <option value="ASSET">{t('investments.type.asset')}</option>
+                                        <option value="OTHER">{t('investments.type.other')}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground">{t('investments.account')}</label>
+                                    <select
+                                        value={accountId}
+                                        onChange={(e) => setAccountId(e.target.value)}
+                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                    >
+                                        {accounts.map(a => (
+                                            <option key={a.id} value={a.id}>
+                                                {a.icon} {a.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
 
+                            {/* Notice about transaction type */}
+                            <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground flex gap-2">
+                                <Wallet className="h-4 w-4 flex-shrink-0" />
+                                <span>
+                                    {type === 'ASSET'
+                                        ? t('investments.depreciation_transfer_notice')
+                                        : t('investments.transfer_notice')}
+                                </span>
+                            </div>
+
+                            {type === 'ASSET' ? (
+                                <>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-xs font-medium text-muted-foreground">{t('investments.purchase_price')}</label>
+                                            <div className="flex gap-2">
+                                                <select
+                                                    value={currencyCode}
+                                                    onChange={(e) => setCurrencyCode(e.target.value)}
+                                                    className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                >
+                                                    {CURRENCIES.map((c) => (
+                                                        <option key={c.code} value={c.code}>{c.code}</option>
+                                                    ))}
+                                                </select>
+                                                <input
+                                                    required
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={purchasePrice}
+                                                    onChange={(e) => setPurchasePrice(e.target.value)}
+                                                    placeholder="e.g. 5000"
+                                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-medium text-muted-foreground">{t('investments.useful_life')}</label>
+                                            <input
+                                                required
+                                                type="number"
+                                                value={usefulLife}
+                                                onChange={(e) => setUsefulLife(e.target.value)}
+                                                placeholder="e.g. 3"
+                                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-xs font-medium text-muted-foreground">{t('investments.salvage_value')}</label>
+                                            <input
+                                                required
+                                                type="number"
+                                                step="0.01"
+                                                value={salvageValue}
+                                                onChange={(e) => setSalvageValue(e.target.value)}
+                                                placeholder="e.g. 500"
+                                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-medium text-muted-foreground">{t('investments.depreciation_type')}</label>
+                                            <select
+                                                value={depreciationType}
+                                                onChange={(e) => setDepreciationType(e.target.value as any)}
+                                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                            >
+                                                <option value="STRAIGHT_LINE">直线法</option>
+                                                <option value="DECLINING_BALANCE">余额递减法</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-medium text-muted-foreground">{t('investments.amount')}</label>
+                                        <div className="flex gap-2">
+                                            <select
+                                                value={currencyCode}
+                                                onChange={(e) => setCurrencyCode(e.target.value)}
+                                                className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                            >
+                                                {CURRENCIES.map((c) => (
+                                                    <option key={c.code} value={c.code}>{c.code}</option>
+                                                ))}
+                                            </select>
+                                            <input
+                                                required
+                                                type="number"
+                                                step="0.01"
+                                                value={initialAmount}
+                                                onChange={(e) => setInitialAmount(e.target.value)}
+                                                placeholder="0.00"
+                                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                            />
+                                        </div>
+                                    </div>
+                                    {type === 'DEPOSIT' && (
+                                        <div>
+                                            <label className="text-xs font-medium text-muted-foreground">{t('investments.rate')}</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                value={interestRate}
+                                                onChange={(e) => setInterestRate(e.target.value)}
+                                                placeholder="e.g. 2.5"
+                                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground">{t('investments.start_date')}</label>
+                                    <input
+                                        required
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground">{t('investments.end_date')}</label>
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        placeholder="yyyy-mm-dd"
+                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground">{t('investments.note')}</label>
+                                <input
+                                    value={note}
+                                    onChange={(e) => setNote(e.target.value)}
+                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={resetForm}
+                                    className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                                >
+                                    {t('investments.cancel')}
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                                >
+                                    {editingId ? t('investments.update') : t('investments.add')}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Redeem Modal */}
+            {redeemId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-lg space-y-4 animate-in zoom-in-95">
+                        <h2 className="text-lg font-bold">{t('investments.redeem')}</h2>
+                        <form onSubmit={handleRedeemSubmit} className="space-y-4">
                             <div>
                                 <label className="text-xs font-medium text-muted-foreground">{t('investments.final_amount')}</label>
                                 <input
@@ -339,9 +530,9 @@ export default function InvestmentsPage() {
                                     value={redeemAmount}
                                     onChange={(e) => setRedeemAmount(e.target.value)}
                                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                    autoFocus
                                 />
                             </div>
-
                             <div>
                                 <label className="text-xs font-medium text-muted-foreground">{t('investments.end_date')}</label>
                                 <input
@@ -352,18 +543,23 @@ export default function InvestmentsPage() {
                                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                 />
                             </div>
-
                             <div>
-                                <label className="text-xs font-medium text-muted-foreground">Deposit To Account</label>
+                                <label className="text-xs font-medium text-muted-foreground">{t('investments.account')}</label>
                                 <select
                                     value={redeemAccountId}
                                     onChange={(e) => setRedeemAccountId(e.target.value)}
                                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                 >
                                     {accounts.map(a => (
-                                        <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
+                                        <option key={a.id} value={a.id}>
+                                            {a.icon} {a.name}
+                                        </option>
                                     ))}
                                 </select>
+                            </div>
+
+                            <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
+                                {t('investments.redeem_transfer_notice')}
                             </div>
 
                             <div className="flex justify-end gap-2 pt-4">
@@ -378,10 +574,106 @@ export default function InvestmentsPage() {
                                     type="submit"
                                     className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
                                 >
-                                    {t('investments.confirm_redeem')}
+                                    {t('investments.confirm')}
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Update Value Modal */}
+            {
+                updateValueId && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                        <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-lg space-y-4 animate-in zoom-in-95">
+                            <h2 className="text-lg font-bold">{t('investments.update_value_title')}</h2>
+                            <form onSubmit={handleUpdateValueSubmit} className="space-y-4">
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground">{t('investments.current_est')}</label>
+                                    <input
+                                        required
+                                        type="number"
+                                        step="0.01"
+                                        value={newValue}
+                                        onChange={(e) => setNewValue(e.target.value)}
+                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                        autoFocus
+                                    />
+                                </div>
+
+                                <div className="flex justify-end gap-2 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setUpdateValueId(null)}
+                                        className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                                    >
+                                        {t('investments.cancel')}
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                                    >
+                                        {t('investments.update')}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Record Depreciation Modal */}
+            {
+                depreciationId && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                        <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-lg space-y-4 animate-in zoom-in-95">
+                            <h2 className="text-lg font-bold">{t('investments.record_depreciation')}</h2>
+                            <form onSubmit={handleDepreciationSubmit} className="space-y-4">
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground">{t('investments.depreciation_amount')}</label>
+                                    <input
+                                        required
+                                        type="number"
+                                        step="0.01"
+                                        value={depreciationAmount}
+                                        onChange={(e) => setDepreciationAmount(e.target.value)}
+                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                        autoFocus
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground">{t('investments.depreciation_date')}</label>
+                                    <input
+                                        required
+                                        type="date"
+                                        value={depreciationDate}
+                                        onChange={(e) => setDepreciationDate(e.target.value)}
+                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                    />
+                                </div>
+
+                                <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
+                                    {t('investments.depreciation_confirm')}
+                                </div>
+
+                                <div className="flex justify-end gap-2 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setDepreciationId(null)}
+                                        className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                                    >
+                                        {t('investments.cancel')}
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                                    >
+                                        {t('investments.confirm')}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 )
             }
@@ -438,7 +730,8 @@ export default function InvestmentsPage() {
                                             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                                                 {inv.type === 'DEPOSIT' ? <PiggyBank className="h-5 w-5" /> :
                                                     inv.type === 'STOCK' ? <TrendingUp className="h-5 w-5" /> :
-                                                        <Wallet className="h-5 w-5" />}
+                                                        inv.type === 'ASSET' ? <Laptop className="h-5 w-5" /> :
+                                                            <Wallet className="h-5 w-5" />}
                                             </div>
                                             <div>
                                                 <h3 className="font-medium flex items-center gap-2">
@@ -450,7 +743,8 @@ export default function InvestmentsPage() {
                                                         {inv.type === 'STOCK' ? t('investments.type.stock') :
                                                             inv.type === 'DEPOSIT' ? t('investments.type.deposit') :
                                                                 inv.type === 'FUND' ? t('investments.type.fund') :
-                                                                    t('investments.type.other')}
+                                                                    inv.type === 'ASSET' ? t('investments.type.asset') :
+                                                                        t('investments.type.other')}
                                                     </span>
                                                     <span>{inv.currencyCode}</span>
                                                     <span>• {inv.startDate} {inv.endDate ? ` - ${inv.endDate}` : ''}</span>
@@ -463,6 +757,15 @@ export default function InvestmentsPage() {
                                                     <button onClick={() => handleRedeemClick(inv)} className="px-2 py-1 text-xs font-medium bg-primary/10 text-primary rounded hover:bg-primary/20">
                                                         {t('investments.redeem')}
                                                     </button>
+                                                    {inv.type === 'ASSET' ? (
+                                                        <button onClick={() => handleDepreciationClick(inv)} className="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-700 rounded hover:bg-orange-200">
+                                                            {t('investments.record_depreciation')}
+                                                        </button>
+                                                    ) : inv.type !== 'DEPOSIT' && (
+                                                        <button onClick={() => handleUpdateValueClick(inv)} className="px-2 py-1 text-xs font-medium bg-secondary text-secondary-foreground rounded hover:bg-secondary/80">
+                                                            {t('investments.update_value')}
+                                                        </button>
+                                                    )}
                                                     <button onClick={() => handleEdit(inv)} className="p-2 text-muted-foreground hover:text-primary">
                                                         <Edit2 className="h-4 w-4" />
                                                     </button>
@@ -484,11 +787,17 @@ export default function InvestmentsPage() {
                                             <div className="font-medium">{stats.value.toFixed(2)}</div>
                                         </div>
                                         <div>
-                                            <div className="text-xs text-muted-foreground">{t('investments.return')}</div>
-                                            <div className={cn("font-medium flex items-center gap-1", stats.profit >= 0 ? "text-green-500" : "text-red-500")}>
-                                                {stats.profit >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                                                {stats.profit.toFixed(2)} ({stats.percent.toFixed(1)}%)
-                                            </div>
+                                            <div className="text-xs text-muted-foreground">{inv.type === 'ASSET' ? t('investments.last_depreciated') : t('investments.return')}</div>
+                                            {inv.type === 'ASSET' ? (
+                                                <div className="font-medium text-muted-foreground text-sm">
+                                                    {(inv as any).lastDepreciationDate || inv.startDate}
+                                                </div>
+                                            ) : (
+                                                <div className={cn("font-medium flex items-center gap-1", stats.profit >= 0 ? "text-green-500" : "text-red-500")}>
+                                                    {stats.profit >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                                    {stats.profit.toFixed(2)} ({stats.percent.toFixed(1)}%)
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

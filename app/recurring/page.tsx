@@ -117,15 +117,15 @@ export default function RecurringPage() {
         let processed = false;
 
         recurringRules.forEach(rule => {
-            if (rule.active && rule.nextDueDate <= today) {
+            if (rule.isActive && rule.nextRunDate <= today) {
                 // Generate transaction
                 const newTransaction: Transaction = {
                     id: crypto.randomUUID(),
                     amount: rule.amount,
                     currencyCode: rule.currencyCode,
                     categoryId: rule.categoryId,
-                    accountId: rule.accountId,
-                    date: rule.nextDueDate,
+                    accountId: rule.accountId || undefined,
+                    date: rule.nextRunDate,
                     merchant: rule.name,
                     type: categories.find(c => c.id === rule.categoryId)?.type as 'EXPENSE' | 'INCOME' || 'EXPENSE',
                     source: 'RECURRING',
@@ -138,7 +138,7 @@ export default function RecurringPage() {
                 // Actually, since we store YYYY-MM-DD, we should parse it carefully or just manipulate the string/date
                 // But since we want to add months/years, we need a Date object.
                 // Let's use a simple approach: treat the string as local date components
-                const [y, m, d] = rule.nextDueDate.split('-').map(Number);
+                const [y, m, d] = rule.nextRunDate.split('-').map(Number);
                 const nextDateObj = new Date(y, m - 1, d); // Local date
 
                 if (rule.frequency === 'WEEKLY') nextDateObj.setDate(nextDateObj.getDate() + 7);
@@ -146,7 +146,7 @@ export default function RecurringPage() {
                 else if (rule.frequency === 'YEARLY') nextDateObj.setFullYear(nextDateObj.getFullYear() + 1);
 
                 updateRecurringRule(rule.id, {
-                    nextDueDate: formatLocalDate(nextDateObj)
+                    nextRunDate: formatLocalDate(nextDateObj)
                 });
                 processed = true;
             }
@@ -287,9 +287,10 @@ export default function RecurringPage() {
             categoryId,
             accountId: accountId || undefined,
             frequency,
+            interval: 1,
             startDate,
-            nextDueDate: startDate,
-            active: true,
+            nextRunDate: startDate,
+            isActive: true,
         });
         resetForm();
     };
@@ -586,7 +587,7 @@ export default function RecurringPage() {
                                                 <span>•</span>
                                                 <span>{rule.frequency}</span>
                                                 <span>•</span>
-                                                <span>{t('recurring.next')}: {rule.nextDueDate}</span>
+                                                <span>{t('recurring.next')}: {rule.nextRunDate}</span>
                                             </div>
                                         </div>
                                     </div>

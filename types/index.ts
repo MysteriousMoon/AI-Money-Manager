@@ -15,6 +15,7 @@ export interface Transaction {
     fee?: number;
     feeCurrencyCode?: string;
     investmentId?: string;
+    investment?: any; // Using any to avoid importing Prisma types here for now, or we can import if needed
 }
 
 export interface Category {
@@ -30,12 +31,14 @@ export interface RecurringRule {
     amount: number;
     currencyCode: string;
     categoryId: string;
-    frequency: 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'CUSTOM';
-    customIntervalDays?: number;
+    frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+    interval: number;
     startDate: string;
-    nextDueDate: string;
-    active: boolean;
-    accountId?: string;
+    lastRunDate?: string | null;
+    nextRunDate: string;
+    isActive: boolean;
+    accountId?: string | null;
+    merchant?: string | null;
 }
 
 export interface AppSettings {

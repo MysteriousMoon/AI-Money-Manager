@@ -36,6 +36,7 @@ interface AppState {
     updateInvestment: (id: string, updates: Partial<Investment>) => Promise<void>;
     deleteInvestment: (id: string) => Promise<void>;
     closeInvestment: (id: string, finalAmount: number, endDate: string, accountId?: string) => Promise<void>;
+    recordDepreciation: (id: string, amount: number, date: string) => Promise<void>;
 
     addAccount: (account: Omit<AccountWithBalance, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'currentBalance'>) => Promise<void>;
     updateAccount: (id: string, updates: Partial<Omit<AccountWithBalance, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'currentBalance'>>) => Promise<void>;
@@ -66,18 +67,21 @@ export const useStore = create<AppState>((set, get) => ({
                 getAccounts()
             ]);
 
+            const investments = invRes.success && invRes.data ? invRes.data : [];
+
             set({
                 transactions: txRes.success && txRes.data ? txRes.data.map((tx: any) => ({
                     ...tx,
                     note: tx.note ?? undefined,
-                    merchant: tx.merchant ?? undefined
+                    merchant: tx.merchant ?? undefined,
+                    investment: tx.investmentId ? investments.find((i: any) => i.id === tx.investmentId) : undefined
                 })) : [],
                 categories: catRes.success && catRes.data ? catRes.data.map((c: any) => ({
                     ...c,
                     type: c.type as Category['type']
                 })) : DEFAULT_CATEGORIES,
                 recurringRules: recRes.success && recRes.data ? recRes.data as RecurringRule[] : [],
-                investments: invRes.success && invRes.data ? invRes.data : [],
+                investments: investments,
                 accounts: accRes.success && accRes.data ? accRes.data : [],
                 settings: setRes.success && setRes.data ? setRes.data as AppSettings : DEFAULT_SETTINGS,
                 isLoading: false
@@ -160,10 +164,25 @@ export const useStore = create<AppState>((set, get) => ({
     addInvestment: async (investment) => {
         const res = await import('@/app/actions/investment').then(mod => mod.addInvestment(investment));
         if (res.success && res.data) {
-            // Re-fetch investments to get the latest from the DB
+            // Re-fetch investments and transactions
             const invRes = await getInvestments();
+            const txRes = await getTransactions();
+
             if (invRes.success && invRes.data) {
                 set({ investments: invRes.data });
+            }
+
+            const currentInvestments = invRes.success && invRes.data ? invRes.data : get().investments;
+
+            if (txRes.success && txRes.data) {
+                set({
+                    transactions: txRes.data.map((tx: any) => ({
+                        ...tx,
+                        note: tx.note ?? undefined,
+                        merchant: tx.merchant ?? undefined,
+                        investment: tx.investmentId ? currentInvestments.find((i: any) => i.id === tx.investmentId) : undefined
+                    }))
+                });
             }
         }
     },
@@ -172,8 +191,24 @@ export const useStore = create<AppState>((set, get) => ({
         if (res.success) {
             // Re-fetch investments after successful update
             const invRes = await getInvestments();
+            // Also fetch transactions to update links
+            const txRes = await getTransactions();
+
             if (invRes.success && invRes.data) {
                 set({ investments: invRes.data });
+            }
+
+            const currentInvestments = invRes.success && invRes.data ? invRes.data : get().investments;
+
+            if (txRes.success && txRes.data) {
+                set({
+                    transactions: txRes.data.map((tx: any) => ({
+                        ...tx,
+                        note: tx.note ?? undefined,
+                        merchant: tx.merchant ?? undefined,
+                        investment: tx.investmentId ? currentInvestments.find((i: any) => i.id === tx.investmentId) : undefined
+                    }))
+                });
             }
         }
     },
@@ -189,12 +224,15 @@ export const useStore = create<AppState>((set, get) => ({
                 set({ investments: invRes.data });
             }
 
+            const currentInvestments = invRes.success && invRes.data ? invRes.data : get().investments;
+
             if (txRes.success && txRes.data) {
                 set({
                     transactions: txRes.data.map((tx: any) => ({
                         ...tx,
                         note: tx.note ?? undefined,
-                        merchant: tx.merchant ?? undefined
+                        merchant: tx.merchant ?? undefined,
+                        investment: tx.investmentId ? currentInvestments.find((i: any) => i.id === tx.investmentId) : undefined
                     }))
                 });
             }
@@ -211,12 +249,40 @@ export const useStore = create<AppState>((set, get) => ({
                 set({ investments: invRes.data });
             }
 
+            const currentInvestments = invRes.success && invRes.data ? invRes.data : get().investments;
+
             if (txRes.success && txRes.data) {
                 set({
                     transactions: txRes.data.map((tx: any) => ({
                         ...tx,
                         note: tx.note ?? undefined,
-                        merchant: tx.merchant ?? undefined
+                        merchant: tx.merchant ?? undefined,
+                        investment: tx.investmentId ? currentInvestments.find((i: any) => i.id === tx.investmentId) : undefined
+                    }))
+                });
+            }
+        }
+    },
+    recordDepreciation: async (id, amount, date) => {
+        const res = await import('@/app/actions/investment').then(mod => mod.recordDepreciation(id, amount, date));
+        if (res.success) {
+            // Refresh investments and transactions
+            const invRes = await getInvestments();
+            const txRes = await getTransactions();
+
+            if (invRes.success && invRes.data) {
+                set({ investments: invRes.data });
+            }
+
+            const currentInvestments = invRes.success && invRes.data ? invRes.data : get().investments;
+
+            if (txRes.success && txRes.data) {
+                set({
+                    transactions: txRes.data.map((tx: any) => ({
+                        ...tx,
+                        note: tx.note ?? undefined,
+                        merchant: tx.merchant ?? undefined,
+                        investment: tx.investmentId ? currentInvestments.find((i: any) => i.id === tx.investmentId) : undefined
                     }))
                 });
             }

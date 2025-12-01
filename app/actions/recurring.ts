@@ -27,10 +27,12 @@ export async function getRecurringRules() {
             currencyCode: rule.currencyCode,
             categoryId: rule.categoryId,
             frequency: rule.frequency as RecurringRule['frequency'],
+            interval: rule.interval,
             startDate: rule.startDate,
-            nextDueDate: rule.nextRunDate,
-            active: rule.isActive,
-            accountId: rule.accountId || undefined
+            nextRunDate: rule.nextRunDate,
+            isActive: rule.isActive,
+            accountId: rule.accountId || undefined,
+            merchant: rule.merchant || undefined
         }));
 
         return { success: true, data: mappedRules };
@@ -57,11 +59,11 @@ export async function addRecurringRule(rule: RecurringRule) {
                 categoryId: rule.categoryId,
                 frequency: rule.frequency,
                 startDate: rule.startDate,
-                nextRunDate: rule.nextDueDate,
-                isActive: rule.active,
+                nextRunDate: rule.nextRunDate,
+                isActive: rule.isActive,
                 accountId: rule.accountId,
-                // Default values for fields not in UI yet
-                interval: 1,
+                interval: rule.interval || 1,
+                merchant: rule.merchant,
             }
         });
         revalidatePath('/recurring');
@@ -86,10 +88,12 @@ export async function updateRecurringRule(id: string, updates: Partial<Recurring
         if (updates.currencyCode) prismaUpdates.currencyCode = updates.currencyCode;
         if (updates.categoryId) prismaUpdates.categoryId = updates.categoryId;
         if (updates.frequency) prismaUpdates.frequency = updates.frequency;
+        if (updates.interval) prismaUpdates.interval = updates.interval;
         if (updates.startDate) prismaUpdates.startDate = updates.startDate;
-        if (updates.nextDueDate) prismaUpdates.nextRunDate = updates.nextDueDate;
-        if (updates.active !== undefined) prismaUpdates.isActive = updates.active;
+        if (updates.nextRunDate) prismaUpdates.nextRunDate = updates.nextRunDate;
+        if (updates.isActive !== undefined) prismaUpdates.isActive = updates.isActive;
         if (updates.accountId) prismaUpdates.accountId = updates.accountId;
+        if (updates.merchant) prismaUpdates.merchant = updates.merchant;
 
         const updatedRule = await prisma.recurringRule.update({
             where: {
