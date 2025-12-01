@@ -87,7 +87,7 @@ export default function ReportsPage() {
             const expenses = transactions.filter(t =>
                 t.type === 'EXPENSE' &&
                 !t.investmentId && // Exclude investment transactions
-                (selectedCategoryIds.length === 0 || selectedCategoryIds.includes(t.categoryId))
+                (selectedCategoryIds.length === 0 || (t.categoryId && selectedCategoryIds.includes(t.categoryId)))
             );
 
             // 1. Group by Category

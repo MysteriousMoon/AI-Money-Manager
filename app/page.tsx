@@ -12,7 +12,7 @@ import { useTranslation } from '@/lib/i18n';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function Dashboard() {
-  const { transactions, settings, categories, isLoading, investments } = useStore();
+  const { transactions, settings, categories, isLoading, investments, accounts } = useStore();
   const { t } = useTranslation();
 
   // Filter for current month
@@ -155,6 +155,38 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Account Cards */}
+      {accounts.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">My Accounts</h2>
+            <Link href="/accounts" className="text-sm text-primary hover:underline">Manage</Link>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
+            {accounts.map((account) => (
+              <div
+                key={account.id}
+                className="min-w-[200px] snap-start bg-card border rounded-xl p-4 flex flex-col gap-2"
+                style={{ borderLeftWidth: '4px', borderLeftColor: account.color || '#3B82F6' }}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{account.icon || '🏦'}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate text-sm">{account.name}</p>
+                    {account.isDefault && (
+                      <span className="text-xs text-muted-foreground">Default</span>
+                    )}
+                  </div>
+                </div>
+                <p className="text-lg font-bold">
+                  {formatCurrency(account.currentBalance, account.currencyCode)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-4">

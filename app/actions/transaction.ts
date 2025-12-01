@@ -45,6 +45,12 @@ export async function addTransaction(transaction: Transaction) {
                 merchant: transaction.merchant,
                 type: transaction.type,
                 source: transaction.source,
+                accountId: transaction.accountId,
+                transferToAccountId: transaction.transferToAccountId,
+                targetAmount: transaction.targetAmount,
+                targetCurrencyCode: transaction.targetCurrencyCode,
+                fee: transaction.fee,
+                feeCurrencyCode: transaction.feeCurrencyCode,
             },
         });
         return { success: true, data: newTransaction };
@@ -101,6 +107,12 @@ export async function updateTransaction(id: string, updates: Partial<Transaction
                 note: updates.note,
                 merchant: updates.merchant,
                 type: updates.type,
+                accountId: updates.accountId,
+                transferToAccountId: updates.transferToAccountId,
+                targetAmount: updates.targetAmount,
+                targetCurrencyCode: updates.targetCurrencyCode,
+                fee: updates.fee,
+                feeCurrencyCode: updates.feeCurrencyCode,
             },
         });
         return { success: true, data: updatedTransaction };
@@ -138,7 +150,7 @@ export async function exportTransactions() {
         // Generate CSV
         const headers = ['Date', 'Type', 'Category', 'Amount', 'Currency', 'Merchant', 'Note', 'Source'];
         const rows = transactions.map(t => {
-            const categoryName = categoryMap.get(t.categoryId) || 'Unknown';
+            const categoryName = (t.categoryId ? categoryMap.get(t.categoryId) : undefined) || 'Unknown';
             return [
                 t.date,
                 t.type,

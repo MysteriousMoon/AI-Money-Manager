@@ -63,3 +63,9 @@ Thumbs.db
 
 # Prisma
 /prisma/migrations/*_
+
+# Backup
+database_backup.sql
+
+# Agent
+.agent/

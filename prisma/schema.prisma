@@ -10,23 +10,32 @@ datasource db {
 }
 
 model Transaction {
-  id           String      @id @default(uuid())
-  userId       String
-  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount       Float
-  currencyCode String      @default("CNY")
-  categoryId   String
-  date         String      // Storing as ISO string YYYY-MM-DD for simplicity, or DateTime
-  note         String?
-  merchant     String?
-  type         String      // 'EXPENSE' | 'INCOME'
-  source       String      // 'MANUAL' | 'AI_SCAN' | 'RECURRING'
-  investmentId String?     // Optional: linked investment for tracking
-  investment   Investment? @relation(fields: [investmentId], references: [id], onDelete: Cascade)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id                  String      @id @default(uuid())
+  userId              String
+  user                User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount              Float
+  currencyCode        String      @default("CNY")
+  categoryId          String?
+  date                String      // Storing as ISO string YYYY-MM-DD for simplicity, or DateTime
+  note                String?
+  merchant            String?
+  type                String      // 'EXPENSE' | 'INCOME' | 'TRANSFER'
+  source              String      // 'MANUAL' | 'AI_SCAN' | 'RECURRING'
+  accountId           String?     // Account for this transaction
+  account             Account?    @relation("AccountTransactions", fields: [accountId], references: [id], onDelete: SetNull)
+  transferToAccountId String?     // For TRANSFER type: destination account
+  transferToAccount   Account?    @relation("TransferToAccount", fields: [transferToAccountId], references: [id], onDelete: SetNull)
+  targetAmount        Float?      // For transfers with currency exchange
+  targetCurrencyCode  String?     // For transfers with currency exchange
+  fee                 Float?      // Transaction fee
+  feeCurrencyCode     String?     // Currency for the fee
+  investmentId        String?     // Optional: linked investment for tracking
+  investment          Investment? @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 
   @@index([userId])
+  @@index([accountId])
   @@index([investmentId])
   @@map("transactions")
 }
@@ -55,6 +64,8 @@ model RecurringRule {
   currencyCode String   @default("CNY")
   categoryId   String
   merchant     String?
+  accountId    String?  // Account for this recurring rule
+  account      Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   frequency    String   // 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'
   interval     Int      @default(1)
   startDate    String
@@ -65,6 +76,7 @@ model RecurringRule {
   updatedAt    DateTime @updatedAt
 
   @@index([userId])
+  @@index([accountId])
   @@map("recurring_rules")
 }
 
@@ -79,6 +91,7 @@ model Settings {
   exchangeRateApiKey String?
   language           String   @default("en")
   theme              String   @default("system")
+  defaultAccountId   String?  // Default payment account
   updatedAt          DateTime @updatedAt
 
   @@map("settings")
@@ -96,6 +109,7 @@ model User {
   categories     Category[]
   recurringRules RecurringRule[]
   investments    Investment[]
+  accounts       Account[]
   settings       Settings?
 
   @@map("users")
@@ -111,6 +125,8 @@ model Investment {
   currentAmount Float?   // For tracking market value
   currencyCode  String   @default("CNY")
   interestRate  Float?   // For deposits (e.g., 2.5 for 2.5%)
+  accountId     String?
+  account       Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   startDate     String
   endDate       String?
   status        String   @default("ACTIVE") // 'ACTIVE' | 'CLOSED'
@@ -121,4 +137,26 @@ model Investment {
 
   @@index([userId])
   @@map("investments")
+}
+
+model Account {
+  id                    String          @id @default(uuid())
+  userId                String
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                  String
+  type                  String          // 'BANK' | 'DIGITAL_WALLET' | 'CASH' | 'CREDIT_CARD' | 'INVESTMENT' | 'OTHER'
+  initialBalance        Float           @default(0)
+  currencyCode          String          @default("CNY")
+  color                 String?         // For UI distinction (e.g., #FF5733)
+  icon                  String?         // Emoji or icon identifier
+  isDefault             Boolean         @default(false)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  transactions          Transaction[]   @relation("AccountTransactions")
+  transfersTo           Transaction[]   @relation("TransferToAccount")
+  recurringRules        RecurringRule[]
+  investments           Investment[]
+
+  @@index([userId])
+  @@map("accounts")
 }

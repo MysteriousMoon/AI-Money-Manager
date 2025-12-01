@@ -12,7 +12,7 @@ import { recognizeRecurring } from '@/app/actions/recognizeRecurring';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function RecurringPage() {
-    const { recurringRules, categories, addRecurringRule, updateRecurringRule, deleteRecurringRule, addTransaction, settings, isLoading } = useStore();
+    const { recurringRules, categories, accounts, addRecurringRule, updateRecurringRule, deleteRecurringRule, addTransaction, settings, isLoading } = useStore();
     const { t } = useTranslation();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -22,6 +22,7 @@ export default function RecurringPage() {
     const [name, setName] = useState('');
     const [amount, setAmount] = useState('');
     const [categoryId, setCategoryId] = useState(categories[0]?.id || '');
+    const [accountId, setAccountId] = useState(accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
     const [currencyCode, setCurrencyCode] = useState(settings.currency);
     const [frequency, setFrequency] = useState<RecurringRule['frequency']>('MONTHLY');
     const [startDate, setStartDate] = useState(formatLocalDate(new Date()));
@@ -123,6 +124,7 @@ export default function RecurringPage() {
                     amount: rule.amount,
                     currencyCode: rule.currencyCode,
                     categoryId: rule.categoryId,
+                    accountId: rule.accountId,
                     date: rule.nextDueDate,
                     merchant: rule.name,
                     type: categories.find(c => c.id === rule.categoryId)?.type as 'EXPENSE' | 'INCOME' || 'EXPENSE',
@@ -264,6 +266,7 @@ export default function RecurringPage() {
         setName('');
         setAmount('');
         setCategoryId(categories[0]?.id || '');
+        setAccountId(accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
         setCurrencyCode(settings.currency);
         setFrequency('MONTHLY');
         setStartDate(formatLocalDate(new Date()));
@@ -282,6 +285,7 @@ export default function RecurringPage() {
             amount: parseFloat(amount),
             currencyCode,
             categoryId,
+            accountId: accountId || undefined,
             frequency,
             startDate,
             nextDueDate: startDate,
@@ -298,6 +302,7 @@ export default function RecurringPage() {
                 amount: parseFloat(amount),
                 currencyCode,
                 categoryId,
+                accountId: accountId || undefined,
                 frequency,
                 startDate, // Note: changing start date doesn't reset nextDueDate automatically here, might want to logic that
             });
@@ -310,6 +315,7 @@ export default function RecurringPage() {
         setName(rule.name);
         setAmount(rule.amount.toString());
         setCategoryId(rule.categoryId);
+        setAccountId(rule.accountId || accounts.find(a => a.isDefault)?.id || '');
         setCurrencyCode(rule.currencyCode);
         setFrequency(rule.frequency);
         setStartDate(rule.startDate);
@@ -412,7 +418,19 @@ export default function RecurringPage() {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-medium text-muted-foreground">{t('add.currency') || 'Currency'}</label>
+                                    <label className="text-xs font-medium text-muted-foreground">{t('add.account')}</label>
+                                    <select
+                                        value={accountId}
+                                        onChange={(e) => setAccountId(e.target.value)}
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                    >
+                                        {accounts.map(a => (
+                                            <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground">{t('add.currency')}</label>
                                     <select
                                         value={currencyCode}
                                         onChange={(e) => setCurrencyCode(e.target.value)}
@@ -430,9 +448,9 @@ export default function RecurringPage() {
                                         onChange={(e) => setFrequency(e.target.value as any)}
                                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                     >
-                                        <option value="WEEKLY">Weekly</option>
-                                        <option value="MONTHLY">Monthly</option>
-                                        <option value="YEARLY">Yearly</option>
+                                        <option value="WEEKLY">{t('recurring.frequency.weekly')}</option>
+                                        <option value="MONTHLY">{t('recurring.frequency.monthly')}</option>
+                                        <option value="YEARLY">{t('recurring.frequency.yearly')}</option>
                                     </select>
                                 </div>
                                 <div>
@@ -636,7 +654,7 @@ export default function RecurringPage() {
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className="text-xs font-medium text-muted-foreground">{t('add.currency') || 'Currency'}</label>
+                                                <label className="text-xs font-medium text-muted-foreground">{t('add.currency')}</label>
                                                 <select
                                                     value={currencyCode}
                                                     onChange={(e) => setCurrencyCode(e.target.value)}
@@ -654,9 +672,9 @@ export default function RecurringPage() {
                                                     onChange={(e) => setFrequency(e.target.value as any)}
                                                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                                 >
-                                                    <option value="WEEKLY">Weekly</option>
-                                                    <option value="MONTHLY">Monthly</option>
-                                                    <option value="YEARLY">Yearly</option>
+                                                    <option value="WEEKLY">{t('recurring.frequency.weekly')}</option>
+                                                    <option value="MONTHLY">{t('recurring.frequency.monthly')}</option>
+                                                    <option value="YEARLY">{t('recurring.frequency.yearly')}</option>
                                                 </select>
                                             </div>
                                             <div>

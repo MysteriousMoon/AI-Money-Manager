@@ -21,6 +21,7 @@ export default function TransactionsPage() {
     const updateTransaction = useStore((state) => state.updateTransaction);
     const deleteTransaction = useStore((state) => state.deleteTransaction);
     const categories = useStore((state) => state.categories);
+    const accounts = useStore((state) => state.accounts);
     const isLoading = useStore((state) => state.isLoading);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<Partial<Transaction>>({});
@@ -36,6 +37,10 @@ export default function TransactionsPage() {
             merchant: transaction.merchant,
             note: transaction.note,
             type: transaction.type,
+            accountId: transaction.accountId,
+            transferToAccountId: transaction.transferToAccountId,
+            targetAmount: transaction.targetAmount,
+            targetCurrencyCode: transaction.targetCurrencyCode,
         });
     };
 
@@ -55,12 +60,14 @@ export default function TransactionsPage() {
         setDeleteId(id);
     };
 
-    const getCategoryIcon = (categoryId: string) => {
+    const getCategoryIcon = (categoryId?: string) => {
+        if (!categoryId) return '📝';
         const category = categories.find((c) => c.id === categoryId);
         return category?.icon || '📝';
     };
 
-    const getCategoryName = (categoryId: string) => {
+    const getCategoryName = (categoryId?: string) => {
+        if (!categoryId) return 'Unknown';
         const category = categories.find((c) => c.id === categoryId);
         return category?.name || 'Unknown';
     };
@@ -241,6 +248,69 @@ export default function TransactionsPage() {
                                                             </select>
                                                         </div>
                                                     </div>
+
+                                                    {/* Account Selection */}
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div>
+                                                            <label className="text-xs font-medium text-muted-foreground">{t('add.account') || 'Account'}</label>
+                                                            <select
+                                                                value={editForm.accountId || ''}
+                                                                onChange={(e) => setEditForm({ ...editForm, accountId: e.target.value || undefined })}
+                                                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                                            >
+                                                                <option value="">None</option>
+                                                                {accounts.map(a => (
+                                                                    <option key={a.id} value={a.id}>{a.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                        {editForm.type === 'TRANSFER' && (
+                                                            <div>
+                                                                <label className="text-xs font-medium text-muted-foreground">{t('add.transfer_to') || 'Transfer To'}</label>
+                                                                <select
+                                                                    value={editForm.transferToAccountId || ''}
+                                                                    onChange={(e) => setEditForm({ ...editForm, transferToAccountId: e.target.value || undefined })}
+                                                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                                                >
+                                                                    <option value="">None</option>
+                                                                    {accounts.filter(a => a.id !== editForm.accountId).map(a => (
+                                                                        <option key={a.id} value={a.id}>{a.name}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Target Amount for Transfer */}
+                                                    {editForm.type === 'TRANSFER' && (
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div>
+                                                                <label className="text-xs font-medium text-muted-foreground">{t('add.target_amount') || 'Target Amount'}</label>
+                                                                <div className="flex gap-2">
+                                                                    <select
+                                                                        value={editForm.targetCurrencyCode || editForm.currencyCode}
+                                                                        onChange={(e) => setEditForm({ ...editForm, targetCurrencyCode: e.target.value })}
+                                                                        className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                                    >
+                                                                        {CURRENCIES.map((c) => (
+                                                                            <option key={c.code} value={c.code}>
+                                                                                {c.code}
+                                                                            </option>
+                                                                        ))}
+                                                                    </select>
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        value={editForm.targetAmount || ''}
+                                                                        onChange={(e) => setEditForm({ ...editForm, targetAmount: parseFloat(e.target.value) || undefined })}
+                                                                        placeholder="Optional"
+                                                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
                                                     <div className="grid grid-cols-2 gap-3">
                                                         <div>
                                                             <label className="text-xs font-medium text-muted-foreground">{t('add.date')}</label>

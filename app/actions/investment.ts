@@ -76,7 +76,8 @@ export async function addInvestment(investment: Omit<Investment, 'id' | 'userId'
                     source: 'MANUAL',
                     note: `Investment: ${investment.name}`,
                     merchant: 'Investment Portfolio',
-                    investmentId: createdInvestment.id // Link to investment
+                    investmentId: createdInvestment.id, // Link to investment
+                    accountId: investment.accountId, // Deduct from this account
                 }
             });
 
@@ -154,7 +155,7 @@ export async function deleteInvestment(id: string) {
     }
 }
 
-export async function closeInvestment(id: string, finalAmount: number, endDate: string) {
+export async function closeInvestment(id: string, finalAmount: number, endDate: string, accountId?: string) {
     try {
         const user = await getCurrentUser();
         if (!user) {
@@ -216,7 +217,8 @@ export async function closeInvestment(id: string, finalAmount: number, endDate: 
                     source: 'MANUAL',
                     note: `Investment Return: ${existing.name}`,
                     merchant: 'Investment Portfolio',
-                    investmentId: id // Link to investment
+                    investmentId: id, // Link to investment
+                    accountId: accountId, // Deposit to this account
                 }
             });
 

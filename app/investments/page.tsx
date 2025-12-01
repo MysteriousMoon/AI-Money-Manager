@@ -11,7 +11,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function InvestmentsPage() {
     const { t } = useTranslation();
-    const { investments, addInvestment, updateInvestment, deleteInvestment, closeInvestment, isLoading, settings } = useStore();
+    const { investments, accounts, addInvestment, updateInvestment, deleteInvestment, closeInvestment, isLoading, settings } = useStore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -25,11 +25,14 @@ export default function InvestmentsPage() {
     const [startDate, setStartDate] = useState(formatLocalDate(new Date()));
     const [endDate, setEndDate] = useState('');
     const [note, setNote] = useState('');
+    const [accountId, setAccountId] = useState(accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
 
     // Redeem State
     const [redeemId, setRedeemId] = useState<string | null>(null);
     const [redeemAmount, setRedeemAmount] = useState('');
+
     const [redeemDate, setRedeemDate] = useState(formatLocalDate(new Date()));
+    const [redeemAccountId, setRedeemAccountId] = useState(accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
 
     // Delete confirmation state
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -45,6 +48,7 @@ export default function InvestmentsPage() {
         setStartDate(formatLocalDate(new Date()));
         setEndDate('');
         setNote('');
+        setAccountId(accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
         setIsAdding(false);
         setEditingId(null);
     };
@@ -60,6 +64,7 @@ export default function InvestmentsPage() {
         setStartDate(investment.startDate);
         setEndDate(investment.endDate || '');
         setNote(investment.note || '');
+        setAccountId((investment as any).accountId || accounts.find(a => a.isDefault)?.id || '');
         setIsAdding(true);
     };
 
@@ -75,6 +80,7 @@ export default function InvestmentsPage() {
             startDate,
             endDate: endDate || null,
             note: note || null,
+            accountId: accountId || null,
             status: 'ACTIVE',
         };
 
@@ -107,7 +113,7 @@ export default function InvestmentsPage() {
     const handleRedeemSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (redeemId && redeemAmount && redeemDate) {
-            await closeInvestment(redeemId, parseFloat(redeemAmount), redeemDate);
+            await closeInvestment(redeemId, parseFloat(redeemAmount), redeemDate, redeemAccountId || undefined);
             setRedeemId(null);
             setRedeemAmount('');
             setRedeemDate('');
@@ -183,7 +189,7 @@ export default function InvestmentsPage() {
                         {t('investments.deduct_notice')}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label className="text-xs font-medium text-muted-foreground">{t('investments.name')}</label>
                             <input
@@ -205,6 +211,19 @@ export default function InvestmentsPage() {
                                 <option value="DEPOSIT">{t('investments.type.deposit')}</option>
                                 <option value="STOCK">{t('investments.type.stock')}</option>
                                 <option value="OTHER">{t('investments.type.other')}</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground">Account</label>
+                            <select
+                                value={accountId}
+                                onChange={(e) => setAccountId(e.target.value)}
+                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                            >
+                                {accounts.map(a => (
+                                    <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
+                                ))}
                             </select>
                         </div>
                     </div>
@@ -294,87 +313,105 @@ export default function InvestmentsPage() {
                             {editingId ? t('investments.update') : t('investments.add')}
                         </button>
                     </div>
-                </form>
-            )}
+                </form >
+            )
+            }
 
             {/* Redeem Modal */}
-            {redeemId && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <form onSubmit={handleRedeemSubmit} className="w-full max-w-md rounded-lg bg-background p-6 shadow-lg space-y-4 animate-in zoom-in-95">
-                        <h2 className="text-lg font-bold">{t('investments.redeem_title')}</h2>
-                        <p className="text-sm text-muted-foreground">{t('investments.redeem_desc')}</p>
+            {
+                redeemId && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                        <form onSubmit={handleRedeemSubmit} className="w-full max-w-md rounded-lg bg-background p-6 shadow-lg space-y-4 animate-in zoom-in-95">
+                            <h2 className="text-lg font-bold">{t('investments.redeem_title')}</h2>
+                            <p className="text-sm text-muted-foreground">{t('investments.redeem_desc')}</p>
 
-                        <div className="p-3 bg-muted/50 rounded-md text-sm text-muted-foreground flex items-center gap-2">
-                            <Wallet className="h-4 w-4" />
-                            {t('investments.return_notice')}
-                        </div>
+                            <div className="p-3 bg-muted/50 rounded-md text-sm text-muted-foreground flex items-center gap-2">
+                                <Wallet className="h-4 w-4" />
+                                {t('investments.return_notice')}
+                            </div>
 
-                        <div>
-                            <label className="text-xs font-medium text-muted-foreground">{t('investments.final_amount')}</label>
-                            <input
-                                required
-                                type="number"
-                                step="0.01"
-                                value={redeemAmount}
-                                onChange={(e) => setRedeemAmount(e.target.value)}
-                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                            />
-                        </div>
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground">{t('investments.final_amount')}</label>
+                                <input
+                                    required
+                                    type="number"
+                                    step="0.01"
+                                    value={redeemAmount}
+                                    onChange={(e) => setRedeemAmount(e.target.value)}
+                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                />
+                            </div>
 
-                        <div>
-                            <label className="text-xs font-medium text-muted-foreground">{t('investments.end_date')}</label>
-                            <input
-                                required
-                                type="date"
-                                value={redeemDate}
-                                onChange={(e) => setRedeemDate(e.target.value)}
-                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                            />
-                        </div>
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground">{t('investments.end_date')}</label>
+                                <input
+                                    required
+                                    type="date"
+                                    value={redeemDate}
+                                    onChange={(e) => setRedeemDate(e.target.value)}
+                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                />
+                            </div>
 
-                        <div className="flex justify-end gap-2 pt-4">
-                            <button
-                                type="button"
-                                onClick={() => setRedeemId(null)}
-                                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
-                            >
-                                {t('investments.cancel')}
-                            </button>
-                            <button
-                                type="submit"
-                                className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-                            >
-                                {t('investments.confirm_redeem')}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            )}
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground">Deposit To Account</label>
+                                <select
+                                    value={redeemAccountId}
+                                    onChange={(e) => setRedeemAccountId(e.target.value)}
+                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                >
+                                    {accounts.map(a => (
+                                        <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setRedeemId(null)}
+                                    className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                                >
+                                    {t('investments.cancel')}
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                                >
+                                    {t('investments.confirm_redeem')}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                )
+            }
 
             {/* Delete Confirmation Modal */}
-            {deleteId && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-lg space-y-4 animate-in zoom-in-95">
-                        <h2 className="text-lg font-bold">{t('investments.delete_confirm')}</h2>
-                        <div className="flex justify-end gap-2 pt-4">
-                            <button
-                                type="button"
-                                onClick={() => setDeleteId(null)}
-                                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
-                            >
-                                {t('investments.cancel')}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => handleDelete(deleteId)}
-                                className="px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90"
-                            >
-                                Delete
-                            </button>
+            {
+                deleteId && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                        <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-lg space-y-4 animate-in zoom-in-95">
+                            <h2 className="text-lg font-bold">{t('investments.delete_confirm')}</h2>
+                            <div className="flex justify-end gap-2 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setDeleteId(null)}
+                                    className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                                >
+                                    {t('investments.cancel')}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleDelete(deleteId)}
+                                    className="px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90"
+                                >
+                                    Delete
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Investment List */}
             <div className="space-y-4">
@@ -459,6 +496,6 @@ export default function InvestmentsPage() {
                         })
                 )}
             </div>
-        </div>
+        </div >
     );
 }

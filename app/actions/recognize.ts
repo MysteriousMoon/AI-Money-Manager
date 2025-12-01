@@ -15,6 +15,7 @@ interface RecognitionResult {
     date: string;
     category: string;
     summary: string;
+    accountName?: string;
 }
 
 export async function recognizeReceipt(
@@ -22,13 +23,15 @@ export async function recognizeReceipt(
     settings: AppSettings,
     categories: string[] = [],
     text: string = '',
-    defaultCurrency: string = 'USD'
+    defaultCurrency: string = 'USD',
+    defaultAccountName: string = ''
 ): Promise<{ success: boolean; data?: RecognitionResult[]; error?: string }> {
     const { apiBaseUrl, apiKey, model } = settings;
 
     const today = new Date().toISOString().split('T')[0];
     const categoriesStr = categories.length > 0 ? `\nExisting Categories: ${categories.join(', ')}` : '';
     const textContext = text ? `\n\nAdditional Text Context: "${text}"` : '';
+    const accountContext = defaultAccountName ? `\nDefault Payment Account: "${defaultAccountName}"` : '';
 
     const SYSTEM_PROMPT = `You are an expert accountant AI. Analyze the receipt/bill image(s) AND/OR the provided text context to extract transaction details.
     
@@ -45,7 +48,8 @@ IMPORTANT RULES:
    - **summary**: Write SPECIFIC items purchased with brand/product details (e.g., "FoodBasic:[and some details]")
 7. **LANGUAGE SUPPORT**: Support both English and Chinese input. Output summary/merchant in the language of the input or receipt.
 8. **DEFAULT CURRENCY**: If the currency is not explicitly stated in the image or text, use "${defaultCurrency}".
-9. Return a strict JSON ARRAY of transaction objects.
+9. **PAYMENT ACCOUNT**: Identify the payment method/account (e.g., "Visa 1234", "Cash", "Alipay"). If not found${defaultAccountName ? ', use the Default Payment Account' : ''}.
+10. Return a strict JSON ARRAY of transaction objects.
 
 Output Format:
 [
@@ -55,13 +59,14 @@ Output Format:
     "merchant": "string",       // PLATFORM/STORE name (Amazon, Instacart, Walmart, etc.)
     "date": "YYYY-MM-DD",      // Transaction date. If not visible, use ${today}
     "category": "string",       // Category name
-    "summary": "string"         // SPECIFIC items with brand/details
+    "summary": "string",        // SPECIFIC items with brand/details
+    "accountName": "string"     // Payment account/method name
   }
 ]
 
 Context:
 - Category: Match to existing categories when appropriate. If no good match, suggest a descriptive new category name.${categoriesStr}
-- Text: ${textContext}
+- Text: ${textContext}${accountContext}
 IMPORTANT:
 - **TOTAL AMOUNT**: Always look for the FINAL TOTAL (after tax/discounts) at the bottom of the receipt. Do not use the subtotal unless it is the only amount available.
 

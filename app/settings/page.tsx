@@ -10,7 +10,7 @@ import { useTranslation } from '@/lib/i18n';
 import { useTheme } from 'next-themes';
 
 export default function SettingsPage() {
-    const { settings, updateSettings } = useStore();
+    const { settings, updateSettings, accounts } = useStore();
     const { t } = useTranslation();
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
@@ -61,6 +61,29 @@ export default function SettingsPage() {
             </header>
 
             <form onSubmit={handleSubmit} className="space-y-8">
+                {/* Account Settings */}
+                <section className="space-y-4">
+                    <h2 className="text-xl font-semibold border-b pb-2">{t('settings.account_preferences')}</h2>
+                    <div className="grid gap-2">
+                        <label htmlFor="defaultAccountId" className="text-sm font-medium">{t('settings.default_account')}</label>
+                        <select
+                            id="defaultAccountId"
+                            name="defaultAccountId"
+                            value={formData.defaultAccountId || ''}
+                            onChange={handleChange}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                            <option value="">{t('settings.none')}</option>
+                            {accounts.map(account => (
+                                <option key={account.id} value={account.id}>
+                                    {account.name} ({account.currencyCode})
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-muted-foreground">{t('settings.default_account_help')}</p>
+                    </div>
+                </section>
+
                 {/* AI Configuration */}
                 <section className="space-y-4">
                     <h2 className="text-xl font-semibold border-b pb-2">{t('settings.ai_config')}</h2>
@@ -88,7 +111,7 @@ export default function SettingsPage() {
                             placeholder="sk-..."
                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         />
-                        <p className="text-xs text-muted-foreground">Stored locally in your browser.</p>
+                        <p className="text-xs text-muted-foreground">{t('settings.api_key_help')}</p>
                     </div>
 
                     <div className="grid gap-2">
@@ -111,7 +134,7 @@ export default function SettingsPage() {
                     <h2 className="text-xl font-semibold border-b pb-2">{t('settings.currency_loc')}</h2>
 
                     <div className="grid gap-2">
-                        <label className="text-sm font-medium">Theme</label>
+                        <label className="text-sm font-medium">{t('settings.theme')}</label>
                         <div className="flex gap-2">
                             <button
                                 type="button"
@@ -122,7 +145,7 @@ export default function SettingsPage() {
                                 )}
                             >
                                 <Sun className="h-4 w-4" />
-                                Light
+                                {t('settings.theme.light')}
                             </button>
                             <button
                                 type="button"
@@ -133,7 +156,7 @@ export default function SettingsPage() {
                                 )}
                             >
                                 <Moon className="h-4 w-4" />
-                                Dark
+                                {t('settings.theme.dark')}
                             </button>
                             <button
                                 type="button"
@@ -144,7 +167,7 @@ export default function SettingsPage() {
                                 )}
                             >
                                 <Laptop className="h-4 w-4" />
-                                System
+                                {t('settings.theme.system')}
                             </button>
                         </div>
                     </div>
@@ -213,7 +236,7 @@ export default function SettingsPage() {
                                 type="password"
                                 value={formData.exchangeRateApiKey}
                                 onChange={handleChange}
-                                placeholder="ExchangeRate-API Key"
+                                placeholder={t('settings.exchange_key_placeholder')}
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             />
                             <button

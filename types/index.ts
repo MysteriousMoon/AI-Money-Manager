@@ -2,12 +2,18 @@ export interface Transaction {
     id: string;
     amount: number;
     currencyCode: string;
-    categoryId: string;
+    categoryId?: string;
     date: string; // ISO 8601 YYYY-MM-DD
     note?: string;
     merchant?: string;
-    type: 'EXPENSE' | 'INCOME';
+    type: 'EXPENSE' | 'INCOME' | 'TRANSFER';
     source: 'MANUAL' | 'AI_SCAN' | 'RECURRING';
+    accountId?: string;
+    transferToAccountId?: string;
+    targetAmount?: number;
+    targetCurrencyCode?: string;
+    fee?: number;
+    feeCurrencyCode?: string;
     investmentId?: string;
 }
 
@@ -29,6 +35,7 @@ export interface RecurringRule {
     startDate: string;
     nextDueDate: string;
     active: boolean;
+    accountId?: string;
 }
 
 export interface AppSettings {
@@ -38,6 +45,7 @@ export interface AppSettings {
     currency: string;
     exchangeRateApiKey: string;
     language: 'en' | 'zh';
+    defaultAccountId?: string;
 }
 
 export const DEFAULT_CATEGORIES: Category[] = [
@@ -59,4 +67,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
     currency: 'CNY',
     exchangeRateApiKey: 'f97bc1648959b6f3dbe8749b',
     language: 'en',
+    defaultAccountId: undefined,
 };

@@ -6,12 +6,14 @@ import { getCategories, addCategory, deleteCategory, updateCategory } from '@/ap
 import { getSettings, updateSettings } from '@/app/actions/settings';
 import { getRecurringRules, addRecurringRule, updateRecurringRule, deleteRecurringRule } from '@/app/actions/recurring';
 import { getInvestments } from '@/app/actions/investment';
+import { getAccounts, createAccount, updateAccount, deleteAccount, type AccountWithBalance } from '@/app/actions/account';
 
 interface AppState {
     transactions: Transaction[];
     categories: Category[];
     recurringRules: RecurringRule[];
     investments: Investment[];
+    accounts: AccountWithBalance[];
     settings: AppSettings;
     isLoading: boolean;
 
@@ -33,7 +35,12 @@ interface AppState {
     addInvestment: (investment: Omit<Investment, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => Promise<void>;
     updateInvestment: (id: string, updates: Partial<Investment>) => Promise<void>;
     deleteInvestment: (id: string) => Promise<void>;
-    closeInvestment: (id: string, finalAmount: number, endDate: string) => Promise<void>;
+    closeInvestment: (id: string, finalAmount: number, endDate: string, accountId?: string) => Promise<void>;
+
+    addAccount: (account: Omit<AccountWithBalance, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'currentBalance'>) => Promise<void>;
+    updateAccount: (id: string, updates: Partial<Omit<AccountWithBalance, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'currentBalance'>>) => Promise<void>;
+    deleteAccount: (id: string) => Promise<void>;
+    refreshAccounts: () => Promise<void>;
 
     updateSettings: (updates: Partial<AppSettings>) => Promise<void>;
 }
@@ -42,18 +49,21 @@ export const useStore = create<AppState>((set, get) => ({
     transactions: [],
     categories: [], // Initialize empty, will fetch
     recurringRules: [],
+    investments: [],
+    accounts: [],
     settings: DEFAULT_SETTINGS,
     isLoading: true,
 
     fetchInitialData: async () => {
         set({ isLoading: true });
         try {
-            const [txRes, catRes, setRes, recRes, invRes] = await Promise.all([
+            const [txRes, catRes, setRes, recRes, invRes, accRes] = await Promise.all([
                 getTransactions(),
                 getCategories(),
                 getSettings(),
                 getRecurringRules(),
-                getInvestments()
+                getInvestments(),
+                getAccounts()
             ]);
 
             set({
@@ -68,6 +78,7 @@ export const useStore = create<AppState>((set, get) => ({
                 })) : DEFAULT_CATEGORIES,
                 recurringRules: recRes.success && recRes.data ? recRes.data as RecurringRule[] : [],
                 investments: invRes.success && invRes.data ? invRes.data : [],
+                accounts: accRes.success && accRes.data ? accRes.data : [],
                 settings: setRes.success && setRes.data ? setRes.data as AppSettings : DEFAULT_SETTINGS,
                 isLoading: false
             });
@@ -146,7 +157,6 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     // Investment Actions
-    investments: [],
     addInvestment: async (investment) => {
         const res = await import('@/app/actions/investment').then(mod => mod.addInvestment(investment));
         if (res.success && res.data) {
@@ -190,8 +200,8 @@ export const useStore = create<AppState>((set, get) => ({
             }
         }
     },
-    closeInvestment: async (id, finalAmount, endDate) => {
-        const res = await import('@/app/actions/investment').then(mod => mod.closeInvestment(id, finalAmount, endDate));
+    closeInvestment: async (id, finalAmount, endDate, accountId) => {
+        const res = await import('@/app/actions/investment').then(mod => mod.closeInvestment(id, finalAmount, endDate, accountId));
         if (res.success) {
             // Refresh both investments and transactions
             const invRes = await getInvestments();
@@ -210,6 +220,41 @@ export const useStore = create<AppState>((set, get) => ({
                     }))
                 });
             }
+        }
+    },
+
+    // Account Actions
+    addAccount: async (account) => {
+        const res = await createAccount(account);
+        if (res.success && res.data) {
+            const accRes = await getAccounts();
+            if (accRes.success && accRes.data) {
+                set({ accounts: accRes.data });
+            }
+        }
+    },
+    updateAccount: async (id, updates) => {
+        const res = await updateAccount(id, updates);
+        if (res.success) {
+            const accRes = await getAccounts();
+            if (accRes.success && accRes.data) {
+                set({ accounts: accRes.data });
+            }
+        }
+    },
+    deleteAccount: async (id) => {
+        const res = await deleteAccount(id);
+        if (res.success) {
+            const accRes = await getAccounts();
+            if (accRes.success && accRes.data) {
+                set({ accounts: accRes.data });
+            }
+        }
+    },
+    refreshAccounts: async () => {
+        const accRes = await getAccounts();
+        if (accRes.success && accRes.data) {
+            set({ accounts: accRes.data });
         }
     }
 }));

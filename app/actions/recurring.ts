@@ -29,7 +29,8 @@ export async function getRecurringRules() {
             frequency: rule.frequency as RecurringRule['frequency'],
             startDate: rule.startDate,
             nextDueDate: rule.nextRunDate,
-            active: rule.isActive
+            active: rule.isActive,
+            accountId: rule.accountId || undefined
         }));
 
         return { success: true, data: mappedRules };
@@ -58,6 +59,7 @@ export async function addRecurringRule(rule: RecurringRule) {
                 startDate: rule.startDate,
                 nextRunDate: rule.nextDueDate,
                 isActive: rule.active,
+                accountId: rule.accountId,
                 // Default values for fields not in UI yet
                 interval: 1,
             }
@@ -87,6 +89,7 @@ export async function updateRecurringRule(id: string, updates: Partial<Recurring
         if (updates.startDate) prismaUpdates.startDate = updates.startDate;
         if (updates.nextDueDate) prismaUpdates.nextRunDate = updates.nextDueDate;
         if (updates.active !== undefined) prismaUpdates.isActive = updates.active;
+        if (updates.accountId) prismaUpdates.accountId = updates.accountId;
 
         const updatedRule = await prisma.recurringRule.update({
             where: {

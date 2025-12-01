@@ -16,6 +16,9 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+    # ports:
+    #   - "5432:5432"  # Removed for security - DB only accessible within Docker network
+
 
   app:
     build: .

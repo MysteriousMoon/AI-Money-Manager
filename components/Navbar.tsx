@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Settings, PieChart, Repeat, List, TrendingUp } from 'lucide-react';
+import { Home, Settings, PieChart, Repeat, List, TrendingUp, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
 import { useStore } from '@/lib/store';
@@ -17,6 +17,7 @@ export function Navbar() {
         { href: '/transactions', label: t('nav.transactions'), icon: List },
         { href: '/reports', label: t('nav.reports'), icon: PieChart },
         { href: '/investments', label: t('nav.investments'), icon: TrendingUp },
+        { href: '/accounts', label: t('nav.accounts'), icon: Wallet },
         { href: '/recurring', label: t('nav.recurring'), icon: Repeat },
         { href: '/settings', label: t('nav.settings'), icon: Settings },
     ];
