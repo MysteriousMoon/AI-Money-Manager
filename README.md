@@ -35,6 +35,12 @@ A modern, AI-powered expense tracking application built with Next.js, featuring 
 - **Default Categories**: Pre-configured common categories
 - **Type-Based Organization**: Separate expense and income categories
 
+### 💰 Investment Portfolio
+- **Asset Tracking**: Track stocks, funds, deposits, and fixed assets
+- **Depreciation**: Automatic calculation of asset depreciation
+- **Market Value**: Monitor current market value vs initial cost
+- **Performance**: Track returns and interest
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -114,6 +120,7 @@ accounting/
 │   ├── add/                 # Add transaction page
 │   ├── categories/          # Category management
 │   ├── edit/                # Edit transaction page
+│   ├── investments/         # Investment portfolio
 │   ├── recurring/           # Recurring rules page
 │   ├── reports/             # Analytics & reports
 │   ├── settings/            # Settings page
@@ -142,6 +149,9 @@ accounting/
 - **Transaction**: Individual income/expense records
 - **Category**: Transaction categories with icons
 - **RecurringRule**: Automated recurring transaction rules
+- **Investment**: Asset and investment tracking
+- **Account**: Financial accounts (Bank, Cash, Wallet)
+- **User**: User authentication and profile
 - **Settings**: Application configuration
 
 See [`prisma/schema.prisma`](prisma/schema.prisma) for detailed schema definition.
@@ -260,3 +270,78 @@ For support or questions, please contact the development team.
 ---
 
 Built with ❤️ using Next.js and modern web technologies
+
+---
+
+# 🧠 Advanced Architecture & Database Design
+
+This section outlines the technical details of the application's architecture, intended for developers and contributors who need a deeper understanding of the system.
+
+## 🗄️ Database Architecture (ERD)
+
+The application uses a relational database model (PostgreSQL) managed by Prisma ORM. The schema is designed to support multi-user environments (though currently single-tenant focused), multi-currency transactions, and complex financial tracking.
+
+### Core Entities
+
+#### 1. User (`users`)
+The central entity for authentication and data ownership.
+- **Key Fields**: `id`, `email`, `password` (hashed), `role`.
+- **Relationships**: Owns all other entities (Transactions, Accounts, Investments, etc.) via `userId`.
+- **Security**: All data queries are scoped to the `userId` to ensure data isolation.
+
+#### 2. Account (`accounts`)
+Represents a financial container (e.g., Bank Account, Wallet, Credit Card).
+- **Key Fields**: `type` (BANK, CASH, etc.), `currencyCode`, `initialBalance`.
+- **Design**: Acts as the source or destination for transactions.
+- **Balance Calculation**: Current balance is derived from `initialBalance` + sum of all related transactions.
+
+### Financial Records
+
+#### 3. Transaction (`transactions`)
+The core ledger entry for the application.
+- **Types**: `EXPENSE`, `INCOME`, `TRANSFER`.
+- **Double-Entry Support**:
+  - `accountId`: The source account.
+  - `transferToAccountId`: The destination account (for transfers).
+- **Multi-Currency**: Stores `amount` (source currency) and `targetAmount` (destination currency) along with exchange rates.
+- **Linkages**: Can be linked to an `Investment` via `investmentId` to track capital flow.
+
+#### 4. Investment (`investments`)
+A specialized module for tracking assets that appreciate or depreciate over time.
+- **Types**: `STOCK`, `FUND`, `DEPOSIT`, `ASSET`.
+- **Lifecycle**: Tracks `startDate`, `endDate`, `initialAmount`, and `currentAmount`.
+- **Advanced Features**:
+  - **Depreciation**: Supports `STRAIGHT_LINE` and `DECLINING_BALANCE` methods for fixed assets.
+  - **Interest**: Tracks interest rates for deposits.
+
+#### 5. RecurringRule (`recurring_rules`)
+Automation engine for generating transactions.
+- **Logic**: Defines `frequency` (e.g., MONTHLY) and `interval` (e.g., every 2 months).
+- **State**: Tracks `nextRunDate` and `lastRunDate` to prevent duplicate generation.
+
+### Configuration & Metadata
+
+#### 6. Category (`categories`)
+User-defined classification for transactions.
+- **Fields**: `name`, `icon`, `type` (EXPENSE/INCOME).
+
+#### 7. Settings (`settings`)
+User-specific application configuration.
+- **AI Config**: Stores API keys and model preferences for receipt scanning.
+- **Preferences**: Default currency, language, and theme.
+
+## 🔄 Data Flow & Logic
+
+### Transaction Processing
+1.  **Creation**: When a transaction is created, it is validated against the user's account and category.
+2.  **Transfers**: For transfers, the system ensures both source and destination accounts exist. Currency conversion is handled if accounts differ in currency.
+3.  **Balance Updates**: Account balances are not stored persistently to avoid drift. They are calculated dynamically or cached (future optimization).
+
+### AI Integration
+- **Receipt Scanning**: Images are sent to an LLM (e.g., GPT-4o) via the configured API. The LLM extracts date, amount, merchant, and items, returning a structured JSON.
+- **Recurring Rules**: Similar to receipts, documents can be scanned to infer recurring payment schedules.
+
+### Internationalization (i18n)
+- The app uses a custom i18n solution (or library) to handle English and Chinese.
+- Dates and currencies are formatted based on the user's locale settings.
+
