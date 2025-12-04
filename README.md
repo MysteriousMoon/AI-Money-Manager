@@ -35,11 +35,20 @@ A modern, AI-powered expense tracking application built with Next.js, featuring 
 - **Default Categories**: Pre-configured common categories
 - **Type-Based Organization**: Separate expense and income categories
 
-### 💰 Investment Portfolio
-- **Asset Tracking**: Track stocks, funds, deposits, and fixed assets
-- **Depreciation**: Automatic calculation of asset depreciation
-- **Market Value**: Monitor current market value vs initial cost
-- **Performance**: Track returns and interest
+### 💰 Investment & Assets
+- **Portfolio Tracking**: Monitor stocks, funds, and other investments
+- **Fixed Assets**: Track physical assets (electronics, vehicles, etc.)
+- **Smart Depreciation**:
+  - **Automated Amortization**: Automatically calculate and record depreciation expenses
+  - **Multiple Methods**: Support for Straight-Line and Declining Balance methods
+  - **Real-time Valuation**: Track current book value vs market value
+- **Asset Lifecycle**: Manage asset purchase, depreciation, and disposal/redemption
+
+### 🏦 Advanced Account Management
+- **Multi-Type Support**: Bank accounts, digital wallets, credit cards, and asset accounts
+- **AI Transfers**: Intelligent detection of transfers between accounts
+- **Balance Reconciliation**: Track and adjust account balances
+- **Asset Integration**: Seamlessly link assets to financial accounts
 
 ## 🚀 Quick Start
 
