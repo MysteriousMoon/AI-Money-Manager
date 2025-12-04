@@ -43,6 +43,8 @@ export interface RecurringRule {
     merchant?: string | null;
 }
 
+export type Settings = AppSettings;
+
 export interface AppSettings {
     apiBaseUrl: string;
     apiKey: string;
@@ -74,3 +76,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
     language: 'en',
     defaultAccountId: undefined,
 };
+
+export interface Account {
+    id: string;
+    name: string;
+    type: string;
+    balance?: number; // This might be initialBalance or currentBalance depending on usage
+    currencyCode: string;
+    isDefault?: boolean;
+    currentBalance: number;
+}

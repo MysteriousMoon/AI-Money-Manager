@@ -11,6 +11,8 @@ import { LifestyleChart } from '@/components/dashboard/LifestyleChart';
 import { SmartPnLChart } from '@/components/dashboard/SmartPnLChart';
 import { AssetSummary } from '@/components/dashboard/AssetSummary';
 import { ProjectList } from '@/components/dashboard/ProjectList';
+import { PageHeader } from '@/components/ui/page-header';
+import { ContentContainer } from '@/components/ui/content-container';
 
 export default function Dashboard() {
     const { settings, isLoading } = useStore();
@@ -46,17 +48,11 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="container mx-auto p-4 pb-24 md:pt-24 space-y-6 max-w-7xl">
-            {/* Header */}
-            <header className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{t('dashboard.title')}</h1>
-                    <p className="text-muted-foreground">
-                        {new Date().toLocaleDateString(settings.language === 'zh' ? 'zh-CN' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                    </p>
-                </div>
-
-            </header>
+        <ContentContainer>
+            <PageHeader
+                title={t('nav.reports')}
+                description={new Date().toLocaleDateString(settings.language === 'zh' ? 'zh-CN' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            />
 
             {/* Bento Grid Layout */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
@@ -87,6 +83,6 @@ export default function Dashboard() {
                 </div>
 
             </div>
-        </div>
+        </ContentContainer>
     );
 }

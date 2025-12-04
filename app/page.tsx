@@ -1,18 +1,21 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useStore } from '@/lib/store';
 import { useCurrencyTotal } from '@/hooks/useCurrencyTotal';
-import { Plus, ScanLine, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import Link from 'next/link';
-import { formatCurrency } from '@/lib/currency';
-import { cn, parseLocalDate } from '@/lib/utils';
+import { parseLocalDate } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
 import { calculateDepreciation } from '@/lib/depreciation';
 import { getMeIncMetrics } from '@/app/actions/dashboard';
-import { useState, useEffect, useCallback } from 'react';
-
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+
+// Widgets
+import { TotalBalanceCard } from '@/components/dashboard/TotalBalanceCard';
+import { MonthlyFlowCard } from '@/components/dashboard/MonthlyFlowCard';
+import { CapitalWaterLevelCard } from '@/components/dashboard/CapitalWaterLevelCard';
+import { RecentTransactionsWidget } from '@/components/dashboard/RecentTransactionsWidget';
+import { QuickActionsWidget } from '@/components/dashboard/QuickActionsWidget';
+import { ExpenseCompositionChart } from '@/components/dashboard/ExpenseCompositionChart';
 
 interface DailyBurnRate {
   date: string;
@@ -65,8 +68,6 @@ export default function Dashboard() {
   const thisMonthExpenses = useMemo(() =>
     thisMonthTransactions.filter(t => {
       if (t.type !== 'EXPENSE') return false;
-      // Exclude system asset categories (Investment, Depreciation) to prevent double-counting
-      // These are tracked separately in the Investment module
       const category = categories.find(c => c.id === t.categoryId);
       if (category && (category.name === 'Investment' || category.name === 'Depreciation')) {
         return false;
@@ -78,11 +79,9 @@ export default function Dashboard() {
 
   const thisMonthIncomeList = useMemo(() => thisMonthTransactions.filter(t => t.type === 'INCOME'), [thisMonthTransactions]);
 
-  // All-time calculations for Main Card
   const allTimeExpenses = useMemo(() =>
     transactions.filter(t => {
       if (t.type !== 'EXPENSE') return false;
-      // Exclude system asset categories (Investment, Depreciation)
       const category = categories.find(c => c.id === t.categoryId);
       if (category && (category.name === 'Investment' || category.name === 'Depreciation')) {
         return false;
@@ -94,29 +93,12 @@ export default function Dashboard() {
 
   const allTimeIncomeList = useMemo(() => transactions.filter(t => t.type === 'INCOME'), [transactions]);
 
-  const { total: thisMonthTotal, loading: loadingThis } = useCurrencyTotal(
-    thisMonthExpenses,
-    settings
-  );
+  const { total: thisMonthTotal, loading: loadingThis } = useCurrencyTotal(thisMonthExpenses, settings);
+  const { total: thisMonthIncome, loading: loadingIncome } = useCurrencyTotal(thisMonthIncomeList, settings);
+  const { total: allTimeTotal, loading: loadingAllTimeExpenses } = useCurrencyTotal(allTimeExpenses, settings);
+  const { total: allTimeIncome, loading: loadingAllTimeIncome } = useCurrencyTotal(allTimeIncomeList, settings);
 
-  const { total: thisMonthIncome, loading: loadingIncome } = useCurrencyTotal(
-    thisMonthIncomeList,
-    settings
-  );
-
-  const { total: allTimeTotal, loading: loadingAllTimeExpenses } = useCurrencyTotal(
-    allTimeExpenses,
-    settings
-  );
-
-  const { total: allTimeIncome, loading: loadingAllTimeIncome } = useCurrencyTotal(
-    allTimeIncomeList,
-    settings
-  );
-
-  // Investment Calculations - Match the logic from investments page
   const calculateInvestmentValue = useCallback((investment: typeof investments[0]): number => {
-    // Handle ASSET type with depreciation
     if (investment.type === 'ASSET' && investment.purchasePrice && investment.salvageValue !== null && investment.usefulLife && investment.depreciationType) {
       const depResult = calculateDepreciation(
         investment.purchasePrice,
@@ -128,7 +110,6 @@ export default function Dashboard() {
       return depResult.bookValue;
     }
 
-    // Handle DEPOSIT type with interest calculation
     if (investment.type === 'DEPOSIT' && investment.interestRate) {
       const principal = investment.initialAmount;
       const rate = investment.interestRate / 100;
@@ -139,13 +120,11 @@ export default function Dashboard() {
       return principal + interest;
     }
 
-    // For other types, use currentAmount if available, otherwise initialAmount
     return investment.currentAmount ?? investment.initialAmount;
   }, []);
 
   const activeInvestments = useMemo(() => investments.filter(i => i.status === 'ACTIVE'), [investments]);
 
-  // 1. Financial Investments (Stocks, Funds, Deposits) - Exclude Assets
   const financialInvestmentItems = useMemo(() => {
     const financialInvestments = activeInvestments.filter(i => i.type !== 'ASSET');
     return financialInvestments.map(inv => ({
@@ -156,7 +135,6 @@ export default function Dashboard() {
 
   const { total: totalFinancialInvested, loading: loadingFinancialInvested } = useCurrencyTotal(financialInvestmentItems, settings);
 
-  // 2. Fixed Assets
   const fixedAssetItems = useMemo(() => {
     const fixedAssets = activeInvestments.filter(i => i.type === 'ASSET');
     return fixedAssets.map(inv => ({
@@ -167,7 +145,6 @@ export default function Dashboard() {
 
   const { total: totalFixedAssets, loading: loadingFixedAssets } = useCurrencyTotal(fixedAssetItems, settings);
 
-  // 3. Cash Savings (Exclude Investment and Asset accounts to avoid double counting)
   const cashAccountItems = useMemo(() => {
     const cashAccounts = accounts.filter(a => a.type !== 'INVESTMENT' && a.type !== 'ASSET');
     return cashAccounts.map(acc => ({
@@ -178,7 +155,6 @@ export default function Dashboard() {
 
   const { total: totalCash, loading: loadingCash } = useCurrencyTotal(cashAccountItems, settings);
 
-  // Total Net Worth (Capital Water Level)
   const totalNetWorth = totalCash + totalFinancialInvested + totalFixedAssets;
 
   if (isLoading) {
@@ -186,189 +162,68 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="container max-w-7xl mx-auto p-4 pb-24 md:pt-24 space-y-8">
-      {/* Header */}
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{t('dashboard.title')}</h1>
-          <p className="text-muted-foreground text-sm">
-            {new Date().toLocaleDateString(settings.language === 'zh' ? 'zh-CN' : 'en-US', { month: 'long', year: 'numeric' })}
-          </p>
-        </div>
-
+    <div className="container mx-auto p-4 md:p-8 space-y-8 bg-black min-h-screen">
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold text-white tracking-tight">{t('dashboard.title')}</h1>
+        <p className="text-gray-400 text-sm mt-1">
+          {new Date().toLocaleDateString(settings.language === 'zh' ? 'zh-CN' : 'en-US', { month: 'long', year: 'numeric' })}
+        </p>
       </header>
 
-      {/* Main Card */}
-      <div className="bg-primary text-primary-foreground rounded-2xl p-6 shadow-lg relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 space-y-8">
-          {/* Top Row: Balance and Invested */}
-          <div className="grid grid-cols-2 gap-0 items-center border-b border-white/10 pb-6">
-            <div className="pr-8 border-r border-white/10">
-              <p className="text-primary-foreground/80 text-sm font-medium mb-1">{t('dashboard.balance')}</p>
-              <div className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight whitespace-nowrap">
-                {loadingCash ? '...' : formatCurrency(totalCash, settings.currency)}
-              </div>
-            </div>
-
-            <div className="pl-8">
-              <p className="text-primary-foreground/80 text-sm font-medium mb-1">{t('dashboard.invested')}</p>
-              <div className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight whitespace-nowrap">
-                {loadingFinancialInvested ? '...' : formatCurrency(totalFinancialInvested, settings.currency)}
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Row: Totals and Monthly */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-0">
-            {/* Total Stats */}
-            <div className="flex flex-col gap-2 justify-center md:pr-8 md:border-r border-white/10">
-              <div className="flex justify-between items-baseline gap-4">
-                <span className="text-primary-foreground/80 text-sm font-medium">{t('dashboard.total_income')}</span>
-                <span className="text-lg font-semibold text-green-200 text-right">
-                  {loadingAllTimeIncome ? '...' : formatCurrency(allTimeIncome, settings.currency)}
-                </span>
-              </div>
-              <div className="flex justify-between items-baseline gap-4">
-                <span className="text-primary-foreground/80 text-sm font-medium">{t('dashboard.total_expenses')}</span>
-                <span className="text-lg font-semibold text-red-200 text-right">
-                  {loadingAllTimeExpenses ? '...' : formatCurrency(allTimeTotal, settings.currency)}
-                </span>
-              </div>
-            </div>
-
-            {/* Monthly Stats */}
-            <div className="flex flex-col gap-2 justify-center md:pl-8">
-              <div className="flex justify-between items-baseline gap-4">
-                <div className="flex items-center gap-2">
-                  <ArrowDownRight className="h-3 w-3 text-green-300" />
-                  <span className="text-primary-foreground/80 text-sm font-medium">{t('dashboard.income')}</span>
-                </div>
-                <span className="text-lg font-semibold text-green-200 text-right">
-                  {loadingIncome ? '...' : formatCurrency(thisMonthIncome, settings.currency)}
-                </span>
-              </div>
-              <div className="flex justify-between items-baseline gap-4">
-                <div className="flex items-center gap-2">
-                  <ArrowUpRight className="h-3 w-3 text-red-300" />
-                  <span className="text-primary-foreground/80 text-sm font-medium">{t('dashboard.spending')}</span>
-                </div>
-                <span className="text-lg font-semibold text-red-200 text-right">
-                  {loadingThis ? '...' : formatCurrency(thisMonthTotal, settings.currency)}
-                </span>
-              </div>
-            </div>
-          </div>
+      {/* KPI Row (Grid Cols 4) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="h-40">
+          <TotalBalanceCard
+            totalCash={totalCash}
+            totalFinancialInvested={totalFinancialInvested}
+            thisMonthIncome={thisMonthIncome}
+            thisMonthTotal={thisMonthTotal}
+            allTimeIncome={allTimeIncome}
+            allTimeTotal={allTimeTotal}
+            settings={settings}
+            loading={loadingCash || loadingFinancialInvested}
+          />
+        </div>
+        <div className="h-40">
+          <MonthlyFlowCard
+            income={thisMonthIncome}
+            expenses={thisMonthTotal}
+            settings={settings}
+            loading={loadingIncome || loadingThis}
+          />
+        </div>
+        <div className="h-40">
+          <CapitalWaterLevelCard
+            totalNetWorth={totalNetWorth}
+            settings={settings}
+            loading={loadingFinancialInvested || loadingFixedAssets || loadingCash}
+          />
+        </div>
+        <div className="h-40">
+          <QuickActionsWidget />
         </div>
       </div>
 
-      {/* Me Inc. Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-card border rounded-xl p-4 shadow-sm">
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">{t('dashboard.daily_burn_rate')}</h3>
-          <div className="text-2xl font-bold">
-            {metrics ? formatCurrency(averageBurnRate, settings.currency) : '...'}
-            <span className="text-xs font-normal text-muted-foreground ml-1">/ {t('reports.range.daily')}</span>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {t('dashboard.burn_rate_desc')}
-          </p>
+      {/* Main View Row (Grid Cols 3) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent Transactions (2/3 width) */}
+        <div className="lg:col-span-2 h-[500px]">
+          <RecentTransactionsWidget
+            transactions={transactions}
+            categories={categories}
+            accounts={accounts}
+          />
         </div>
-        <div className="bg-card border rounded-xl p-4 shadow-sm">
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">{t('dashboard.capital_water_level')}</h3>
-          <div className="text-2xl font-bold">
-            {loadingFinancialInvested || loadingFixedAssets || loadingCash ? '...' : formatCurrency(totalNetWorth, settings.currency)}
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {t('dashboard.capital_desc')}
-          </p>
+
+        {/* Expense Composition (1/3 width) */}
+        <div className="lg:col-span-1 h-[500px]">
+          <ExpenseCompositionChart
+            transactions={thisMonthExpenses}
+            categories={categories}
+            settings={settings}
+          />
         </div>
       </div>
-
-      {/* Account Cards */}
-      {accounts.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">My Accounts</h2>
-            <Link href="/accounts" className="text-sm text-primary hover:underline">Manage</Link>
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-4 md:overflow-visible md:snap-none">
-            {accounts.map((account) => (
-              <div
-                key={account.id}
-                className="min-w-[200px] snap-start md:min-w-0 bg-card border rounded-xl p-4 flex flex-col gap-2"
-                style={{ borderLeftWidth: '4px', borderLeftColor: account.color || '#3B82F6' }}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{account.icon || '🏦'}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate text-sm">{account.name}</p>
-                    {account.isDefault && (
-                      <span className="text-xs text-muted-foreground">Default</span>
-                    )}
-                  </div>
-                </div>
-                <p className="text-lg font-bold">
-                  {formatCurrency(account.currentBalance, account.currencyCode)}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 gap-4">
-        <Link href="/add" className="flex items-center justify-center gap-2 bg-muted hover:bg-muted/80 p-4 rounded-xl transition-colors font-medium">
-          <Plus className="h-5 w-5" />
-          {t('dashboard.manual_add')}
-        </Link>
-        <Link href="/add?tab=scan" className="flex items-center justify-center gap-2 bg-muted hover:bg-muted/80 p-4 rounded-xl transition-colors font-medium">
-          <ScanLine className="h-5 w-5" />
-          {t('dashboard.scan_receipt')}
-        </Link>
-      </div>
-
-      {/* Recent Transactions */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{t('dashboard.recent_transactions')}</h2>
-          <Link href="/reports" className="text-sm text-primary hover:underline">{t('dashboard.view_all')}</Link>
-        </div>
-
-        <div className="space-y-3">
-          {transactions.slice(0, 5).map((t) => {
-            const category = categories.find(c => c.id === t.categoryId);
-            return (
-              <div key={t.id} className="flex items-center justify-between p-3 bg-card border rounded-xl">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-xl">
-                    {category?.icon || '📄'}
-                  </div>
-                  <div>
-                    <p className="font-medium line-clamp-1">{t.merchant || category?.name || 'Unknown'}</p>
-                    <p className="text-xs text-muted-foreground">{t.date}</p>
-                  </div>
-                </div>
-                <div className={cn(
-                  "font-bold",
-                  t.type === 'INCOME' ? "text-green-600" : "text-foreground"
-                )}>
-                  {t.type === 'INCOME' ? '+' : '-'}
-                  {formatCurrency(t.amount, t.currencyCode)}
-                </div>
-              </div>
-            );
-          })}
-
-          {transactions.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              {t('dashboard.no_transactions')}
-            </div>
-          )}
-        </div>
-      </section>
     </div>
   );
 }

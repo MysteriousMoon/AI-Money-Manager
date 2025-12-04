@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Navbar } from "@/components/Navbar";
+import { AppLayout } from "@/components/AppLayout";
 import { ThemeProvider } from "@/components/theme-provider";
 import { StoreInitializer } from "@/components/StoreInitializer";
 
@@ -54,12 +54,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <StoreInitializer />
-          <div className="flex min-h-screen flex-col bg-background text-foreground">
-            <main className="flex-1 pb-16 md:pb-0">
-              {children}
-            </main>
-            <Navbar />
-          </div>
+          <AppLayout>
+            {children}
+          </AppLayout>
         </ThemeProvider>
       </body>
     </html>

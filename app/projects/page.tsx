@@ -11,10 +11,22 @@ import { AssetSummary } from '@/components/dashboard/AssetSummary'; // Similarly
 
 // We will build inline components for now or refactor if complex
 import { formatCurrency } from '@/lib/currency';
+import { PageHeader } from '@/components/ui/page-header';
+import { ContentContainer } from '@/components/ui/content-container';
+
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function ProjectsPage() {
     const { t } = useTranslation();
-    const { projects, investments, settings } = useStore();
+    const { projects, investments, settings, isLoading } = useStore();
+
+    if (isLoading) {
+        return (
+            <div className="flex h-screen items-center justify-center">
+                <LoadingSpinner size={48} />
+            </div>
+        );
+    }
 
     const activeProjects = projects.filter(p => p.status !== 'COMPLETED' && p.status !== 'CANCELLED');
     const completedProjects = projects.filter(p => p.status === 'COMPLETED');
@@ -22,27 +34,27 @@ export default function ProjectsPage() {
     const assets = investments.filter(i => i.type === 'ASSET');
 
     return (
-        <div className="container mx-auto p-4 pb-24 md:pt-24 space-y-6 max-w-7xl">
-            <header className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{t('dashboard.mission_control')}</h1>
-                    <p className="text-muted-foreground">{t('projects.desc')}</p>
-                </div>
-                <div className="flex gap-2">
-                    <Link href="/projects/new">
-                        <button className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 transition-colors">
-                            <Plus className="h-4 w-4" />
-                            {t('projects.new_project')}
-                        </button>
-                    </Link>
-                    <Link href="/assets/new">
-                        <button className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-md font-medium hover:bg-secondary/80 transition-colors">
-                            <Plus className="h-4 w-4" />
-                            {t('projects.new_asset')}
-                        </button>
-                    </Link>
-                </div>
-            </header>
+        <ContentContainer>
+            <PageHeader
+                title={t('dashboard.mission_control')}
+                description={t('projects.desc')}
+                action={
+                    <div className="flex gap-2">
+                        <Link href="/projects/new">
+                            <button className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 transition-colors">
+                                <Plus className="h-4 w-4" />
+                                {t('projects.new_project')}
+                            </button>
+                        </Link>
+                        <Link href="/assets/new">
+                            <button className="inline-flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-md font-medium hover:bg-secondary/80 transition-colors">
+                                <Plus className="h-4 w-4" />
+                                {t('projects.new_asset')}
+                            </button>
+                        </Link>
+                    </div>
+                }
+            />
 
             <Tabs defaultValue="projects" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
@@ -162,6 +174,6 @@ export default function ProjectsPage() {
                     </section>
                 </TabsContent>
             </Tabs>
-        </div>
+        </ContentContainer>
     );
 }

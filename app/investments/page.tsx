@@ -8,6 +8,8 @@ import { cn, formatLocalDate } from '@/lib/utils';
 import { Investment } from '@prisma/client';
 import { CURRENCIES } from '@/lib/currency';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { PageHeader } from '@/components/ui/page-header';
+import { ContentContainer } from '@/components/ui/content-container';
 import { calculateDepreciation } from '@/lib/depreciation';
 import { useCurrencyTotal } from '@/hooks/useCurrencyTotal';
 import { useEffect } from 'react';
@@ -300,20 +302,20 @@ export default function InvestmentsPage() {
     }
 
     return (
-        <div className="container max-w-2xl mx-auto p-4 pb-24 md:pt-24 space-y-8">
-            <header className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold">{t('investments.title')}</h1>
-                    <p className="text-muted-foreground text-sm">{t('investments.desc')}</p>
-                </div>
-                <button
-                    onClick={() => setIsAdding(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-full text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm"
-                >
-                    <Plus className="h-4 w-4" />
-                    {t('investments.add')}
-                </button>
-            </header>
+        <ContentContainer>
+            <PageHeader
+                title={t('investments.title')}
+                description={t('investments.desc')}
+                action={
+                    <button
+                        onClick={() => setIsAdding(true)}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-full text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm"
+                    >
+                        <Plus className="h-4 w-4" />
+                        {t('investments.add')}
+                    </button>
+                }
+            />
 
             {/* Portfolio Summary */}
             <div className="grid grid-cols-2 gap-4">
@@ -727,7 +729,7 @@ export default function InvestmentsPage() {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => handleDelete(deleteId)}
+                                    onClick={() => handleDelete(deleteId!)}
                                     className="px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90"
                                 >
                                     Delete
@@ -737,107 +739,6 @@ export default function InvestmentsPage() {
                     </div>
                 )
             }
-
-            {/* Investment List */}
-            <div className="space-y-4">
-                {investments.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground">
-                        {t('investments.empty')}
-                    </div>
-                ) : (
-                    [...investments]
-                        .sort((a, b) => {
-                            // Active investments first, closed ones last
-                            if (a.status === 'ACTIVE' && b.status === 'CLOSED') return -1;
-                            if (a.status === 'CLOSED' && b.status === 'ACTIVE') return 1;
-                            // Within same status, sort by creation date (newest first)
-                            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                        })
-                        .map((inv) => {
-                            const stats = calculateReturn(inv);
-                            const isClosed = inv.status === 'CLOSED';
-                            return (
-                                <div key={inv.id} className={cn("rounded-lg border bg-card text-card-foreground shadow-sm p-4", isClosed && "opacity-60")}>
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                                {inv.type === 'DEPOSIT' ? <PiggyBank className="h-5 w-5" /> :
-                                                    inv.type === 'STOCK' ? <TrendingUp className="h-5 w-5" /> :
-                                                        inv.type === 'ASSET' ? <Laptop className="h-5 w-5" /> :
-                                                            <Wallet className="h-5 w-5" />}
-                                            </div>
-                                            <div>
-                                                <h3 className="font-medium flex items-center gap-2">
-                                                    {inv.name}
-                                                    {isClosed && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full uppercase">Closed</span>}
-                                                </h3>
-                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                    <span className="px-1.5 py-0.5 rounded-full bg-muted border uppercase">
-                                                        {inv.type === 'STOCK' ? t('investments.type.stock') :
-                                                            inv.type === 'DEPOSIT' ? t('investments.type.deposit') :
-                                                                inv.type === 'FUND' ? t('investments.type.fund') :
-                                                                    inv.type === 'ASSET' ? t('investments.type.asset') :
-                                                                        t('investments.type.other')}
-                                                    </span>
-                                                    <span>{inv.currencyCode}</span>
-                                                    <span>• {inv.startDate} {inv.endDate ? ` - ${inv.endDate}` : ''}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {!isClosed && (
-                                                <>
-                                                    <button onClick={() => handleRedeemClick(inv)} className="px-2 py-1 text-xs font-medium bg-primary/10 text-primary rounded hover:bg-primary/20">
-                                                        {t('investments.redeem')}
-                                                    </button>
-                                                    {inv.type === 'ASSET' ? (
-                                                        <button onClick={() => handleDepreciationClick(inv)} className="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-700 rounded hover:bg-orange-200">
-                                                            {t('investments.record_depreciation')}
-                                                        </button>
-                                                    ) : inv.type !== 'DEPOSIT' && (
-                                                        <button onClick={() => handleUpdateValueClick(inv)} className="px-2 py-1 text-xs font-medium bg-secondary text-secondary-foreground rounded hover:bg-secondary/80">
-                                                            {t('investments.update_value')}
-                                                        </button>
-                                                    )}
-                                                    <button onClick={() => handleEdit(inv)} className="p-2 text-muted-foreground hover:text-primary">
-                                                        <Edit2 className="h-4 w-4" />
-                                                    </button>
-                                                </>
-                                            )}
-                                            <button onClick={() => handleDeleteClick(inv.id)} className="p-2 text-muted-foreground hover:text-destructive">
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-4 grid grid-cols-3 gap-4 pt-4 border-t">
-                                        <div>
-                                            <div className="text-xs text-muted-foreground">{t('investments.initial')}</div>
-                                            <div className="font-medium">{inv.initialAmount.toFixed(2)}</div>
-                                        </div>
-                                        <div>
-                                            <div className="text-xs text-muted-foreground">{isClosed ? t('investments.final_amount') : t('investments.current_est')}</div>
-                                            <div className="font-medium">{stats.value.toFixed(2)}</div>
-                                        </div>
-                                        <div>
-                                            <div className="text-xs text-muted-foreground">{inv.type === 'ASSET' ? t('investments.last_depreciated') : t('investments.return')}</div>
-                                            {inv.type === 'ASSET' ? (
-                                                <div className="font-medium text-muted-foreground text-sm">
-                                                    {(inv as any).lastDepreciationDate || inv.startDate}
-                                                </div>
-                                            ) : (
-                                                <div className={cn("font-medium flex items-center gap-1", stats.profit >= 0 ? "text-green-500" : "text-red-500")}>
-                                                    {stats.profit >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                                                    {stats.profit.toFixed(2)} ({stats.percent.toFixed(1)}%)
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })
-                )}
-            </div>
-        </div >
+        </ContentContainer>
     );
 }

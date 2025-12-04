@@ -11,6 +11,8 @@ import { recognizeRecurring } from '@/app/actions/recognizeRecurring';
 import { filterSystemCategories } from '@/lib/category-utils';
 
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { PageHeader } from '@/components/ui/page-header';
+import { ContentContainer } from '@/components/ui/content-container';
 
 export default function RecurringPage() {
     const { recurringRules, categories, accounts, addRecurringRule, updateRecurringRule, deleteRecurringRule, addTransaction, settings, isLoading } = useStore();
@@ -330,33 +332,33 @@ export default function RecurringPage() {
     }
 
     return (
-        <div className="container max-w-2xl mx-auto p-4 pb-24 md:pt-24 space-y-6">
-            <header className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold">{t('recurring.title')}</h1>
-                    <p className="text-muted-foreground text-sm">{t('recurring.desc')}</p>
-                </div>
-                <button
-                    onClick={() => {
-                        if (isAdding) {
-                            setIsAdding(false);
-                            setEditingId(null);
-                        } else {
-                            setCurrencyCode(settings.currency);
-                            setIsAdding(true);
-                        }
-                    }}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-                >
-                    {isAdding ? (
-                        <span className="flex items-center gap-1">{t('recurring.cancel')}</span>
-                    ) : (
-                        <span className="flex items-center gap-1">
-                            <Plus className="h-4 w-4" /> {t('recurring.add_button')}
-                        </span>
-                    )}
-                </button>
-            </header>
+        <ContentContainer>
+            <PageHeader
+                title={t('recurring.title')}
+                description={t('recurring.desc')}
+                action={
+                    <button
+                        onClick={() => {
+                            if (isAdding) {
+                                setIsAdding(false);
+                                setEditingId(null);
+                            } else {
+                                setCurrencyCode(settings.currency);
+                                setIsAdding(true);
+                            }
+                        }}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                    >
+                        {isAdding ? (
+                            <span className="flex items-center gap-1">{t('recurring.cancel')}</span>
+                        ) : (
+                            <span className="flex items-center gap-1">
+                                <Plus className="h-4 w-4" /> {t('recurring.add_button')}
+                            </span>
+                        )}
+                    </button>
+                }
+            />
 
             {/* Add Form (only for adding new, not editing) */}
             {isAdding && !editingId && (
@@ -721,6 +723,6 @@ export default function RecurringPage() {
                     </div>
                 )}
             </div>
-        </div>
+        </ContentContainer>
     );
 }

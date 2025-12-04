@@ -6,6 +6,8 @@ import { useStore } from '@/lib/store';
 import { Plus, Edit2, Trash2, Check, X, ArrowRightLeft, Scan } from 'lucide-react';
 import { formatCurrency, CURRENCIES } from '@/lib/currency';
 import { useTranslation } from '@/lib/i18n';
+import { PageHeader } from '@/components/ui/page-header';
+import { ContentContainer } from '@/components/ui/content-container';
 
 const ACCOUNT_TYPES = [
     { value: 'BANK', labelKey: 'accounts.type.bank', icon: '🏦' },
@@ -16,10 +18,20 @@ const ACCOUNT_TYPES = [
     { value: 'OTHER', labelKey: 'accounts.type.other', icon: '📁' },
 ];
 
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+
 export default function AccountsPage() {
     const router = useRouter();
-    const { accounts, settings, addAccount, updateAccount, deleteAccount, refreshAccounts } = useStore();
+    const { accounts, settings, addAccount, updateAccount, deleteAccount, refreshAccounts, isLoading } = useStore();
     const { t } = useTranslation();
+
+    if (isLoading) {
+        return (
+            <div className="flex h-screen items-center justify-center">
+                <LoadingSpinner size={48} />
+            </div>
+        );
+    }
 
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -43,30 +55,37 @@ export default function AccountsPage() {
         setEditingId(null);
     };
 
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (editingId) {
-            await updateAccount(editingId, {
-                name,
-                type,
-                initialBalance: parseFloat(initialBalance),
-                currencyCode,
-                icon,
-                color,
-            });
-        } else {
-            await addAccount({
-                name,
-                type,
-                initialBalance: parseFloat(initialBalance),
-                currencyCode,
-                icon,
-                color,
-                isDefault: accounts.length === 0,
-            });
+        setIsSubmitting(true);
+        try {
+            if (editingId) {
+                await updateAccount(editingId, {
+                    name,
+                    type,
+                    initialBalance: parseFloat(initialBalance),
+                    currencyCode,
+                    icon,
+                    color,
+                });
+            } else {
+                await addAccount({
+                    name,
+                    type,
+                    initialBalance: parseFloat(initialBalance),
+                    currencyCode,
+                    icon,
+                    color,
+                    isDefault: accounts.length === 0,
+                });
+            }
+            resetForm();
+            await refreshAccounts();
+        } finally {
+            setIsSubmitting(false);
         }
-        resetForm();
-        await refreshAccounts();
     };
 
     const handleEdit = (account: typeof accounts[0]) => {
@@ -88,22 +107,22 @@ export default function AccountsPage() {
     };
 
     return (
-        <div className="container max-w-2xl mx-auto p-4 pb-24 md:pt-24 space-y-6">
-            <header className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold">{t('accounts.title')}</h1>
-                    <p className="text-muted-foreground text-sm">{t('accounts.desc')}</p>
-                </div>
-                {!isAdding && (
-                    <button
-                        onClick={() => setIsAdding(true)}
-                        className="inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4"
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        {t('accounts.add')}
-                    </button>
-                )}
-            </header>
+        <ContentContainer>
+            <PageHeader
+                title={t('accounts.title')}
+                description={t('accounts.desc')}
+                action={
+                    !isAdding && (
+                        <button
+                            onClick={() => setIsAdding(true)}
+                            className="inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4"
+                        >
+                            <Plus className="h-4 w-4 mr-2" />
+                            {t('accounts.add')}
+                        </button>
+                    )
+                }
+            />
 
             <div className="grid grid-cols-2 gap-3">
                 <button
@@ -217,9 +236,14 @@ export default function AccountsPage() {
                         <div className="flex gap-2">
                             <button
                                 type="submit"
-                                className="flex-1 inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-10"
+                                disabled={isSubmitting}
+                                className="flex-1 inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-10 disabled:opacity-50"
                             >
-                                <Check className="h-4 w-4 mr-2" />
+                                {isSubmitting ? (
+                                    <LoadingSpinner className="mr-2 h-4 w-4" />
+                                ) : (
+                                    <Check className="h-4 w-4 mr-2" />
+                                )}
                                 {editingId ? t('accounts.update') : t('accounts.create')}
                             </button>
                             <button
@@ -296,6 +320,6 @@ export default function AccountsPage() {
                     ))
                 )}
             </div>
-        </div>
+        </ContentContainer>
     );
 }
