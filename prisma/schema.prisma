@@ -31,6 +31,14 @@ model Transaction {
   feeCurrencyCode     String?     // Currency for the fee
   investmentId        String?     // Optional: linked investment for tracking
   investment          Investment? @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  
+  // New: Project Attribution
+  projectId           String?
+  project             Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+   
+  // Suggested: Exclude from "Cost of Living" analytics?
+  excludeFromAnalytics Boolean    @default(false)
+
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
@@ -110,6 +118,7 @@ model User {
   recurringRules RecurringRule[]
   investments    Investment[]
   accounts       Account[]
+  projects       Project[]
   settings       Settings?
 
   @@map("users")
@@ -141,6 +150,10 @@ model Investment {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   transactions  Transaction[] // Related transactions
+  
+  // New: Project Attribution
+  projectId     String?
+  project       Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@map("investments")
@@ -166,4 +179,29 @@ model Account {
 
   @@index([userId])
   @@map("accounts")
+}
+
+model Project {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+   
+  name        String    // e.g. "Hokkaido Trip", "Full-time Job", "Side Hustle - Photography"
+  type        String    // 'TRIP' | 'JOB' | 'SIDE_HUSTLE' | 'EVENT'
+  status      String    @default("ACTIVE") // 'ACTIVE' | 'COMPLETED' | 'ARCHIVED'
+   
+  startDate   String    // ISO Date YYYY-MM-DD
+  endDate     String?   // Jobs might not have an end date, but trips do
+   
+  totalBudget Float?    // Budget (Optional)
+   
+  // Relations
+  transactions Transaction[]
+  investments  Investment[]  // Linked Assets (e.g., equipment bought specifically for this project)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("projects")
 }

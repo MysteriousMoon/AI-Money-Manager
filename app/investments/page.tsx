@@ -14,7 +14,7 @@ import { useEffect } from 'react';
 
 export default function InvestmentsPage() {
     const { t } = useTranslation();
-    const { investments, accounts, addInvestment, updateInvestment, deleteInvestment, closeInvestment, recordDepreciation, isLoading, settings } = useStore();
+    const { investments, accounts, projects, addInvestment, updateInvestment, deleteInvestment, closeInvestment, recordDepreciation, isLoading, settings } = useStore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -29,6 +29,7 @@ export default function InvestmentsPage() {
     const [endDate, setEndDate] = useState('');
     const [note, setNote] = useState('');
     const [accountId, setAccountId] = useState(accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
+    const [projectId, setProjectId] = useState('');
 
     // Asset specific state
     const [purchasePrice, setPurchasePrice] = useState('');
@@ -75,6 +76,7 @@ export default function InvestmentsPage() {
         setEndDate('');
         setNote('');
         setAccountId(accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
+        setProjectId('');
         setPurchasePrice('');
         setUsefulLife('');
         setSalvageValue('');
@@ -93,6 +95,7 @@ export default function InvestmentsPage() {
         setEndDate(investment.endDate || '');
         setNote(investment.note || '');
         setAccountId((investment as any).accountId || accounts.find(a => a.isDefault)?.id || '');
+        setProjectId((investment as any).projectId || '');
         setPurchasePrice(investment.purchasePrice?.toString() || '');
         setUsefulLife(investment.usefulLife?.toString() || '');
         setSalvageValue(investment.salvageValue?.toString() || '');
@@ -113,6 +116,7 @@ export default function InvestmentsPage() {
             endDate: endDate || null,
             note: note || null,
             accountId: accountId || null,
+            projectId: projectId || null,
             status: 'ACTIVE',
             // Asset-specific fields
             purchasePrice: type === 'ASSET' && purchasePrice ? parseFloat(purchasePrice) : null,
@@ -360,10 +364,12 @@ export default function InvestmentsPage() {
                                 <div>
                                     <label className="text-xs font-medium text-muted-foreground">{t('investments.account')}</label>
                                     <select
+                                        required
                                         value={accountId}
                                         onChange={(e) => setAccountId(e.target.value)}
                                         className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                     >
+                                        <option value="" disabled>{t('investments.select_account')}</option>
                                         {accounts.map(a => (
                                             <option key={a.id} value={a.id}>
                                                 {a.icon} {a.name}
@@ -398,7 +404,7 @@ export default function InvestmentsPage() {
                                                     step="0.01"
                                                     value={purchasePrice}
                                                     onChange={(e) => setPurchasePrice(e.target.value)}
-                                                    placeholder="e.g. 5000"
+                                                    placeholder={t('investments.placeholder.price')}
                                                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                                 />
                                             </div>
@@ -410,7 +416,7 @@ export default function InvestmentsPage() {
                                                 type="number"
                                                 value={usefulLife}
                                                 onChange={(e) => setUsefulLife(e.target.value)}
-                                                placeholder="e.g. 3"
+                                                placeholder={t('investments.placeholder.years')}
                                                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                             />
                                         </div>
@@ -424,7 +430,7 @@ export default function InvestmentsPage() {
                                                 step="0.01"
                                                 value={salvageValue}
                                                 onChange={(e) => setSalvageValue(e.target.value)}
-                                                placeholder="e.g. 500"
+                                                placeholder={t('investments.placeholder.salvage')}
                                                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                             />
                                         </div>
@@ -468,7 +474,7 @@ export default function InvestmentsPage() {
                                                 step="0.01"
                                                 value={interestRate}
                                                 onChange={(e) => setInterestRate(e.target.value)}
-                                                placeholder="e.g. 2.5"
+                                                placeholder={t('investments.placeholder.rate')}
                                                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                             />
                                         </div>
@@ -497,6 +503,20 @@ export default function InvestmentsPage() {
                                         className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                     />
                                 </div>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground">{t('add.project')}</label>
+                                <select
+                                    value={projectId}
+                                    onChange={(e) => setProjectId(e.target.value)}
+                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                >
+                                    <option value="">{t('add.project_none')}</option>
+                                    {projects.filter(p => p.status === 'ACTIVE').map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div>

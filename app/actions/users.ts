@@ -46,6 +46,17 @@ export async function createUser(formData: FormData) {
                 name,
                 role: role || 'USER',
                 password: password || '123456',
+                accounts: {
+                    create: {
+                        name: 'Cash',
+                        type: 'CASH',
+                        initialBalance: 0,
+                        currencyCode: 'CNY',
+                        isDefault: true,
+                        color: '#10B981', // Emerald-500
+                        icon: '💵'
+                    }
+                }
             },
         })
         revalidatePath('/admin/users')

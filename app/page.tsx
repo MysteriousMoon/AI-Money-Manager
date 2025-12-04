@@ -8,31 +8,58 @@ import Link from 'next/link';
 import { formatCurrency } from '@/lib/currency';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
-import { isSystemCategory } from '@/lib/category-utils';
 import { calculateDepreciation } from '@/lib/depreciation';
+import { getMeIncMetrics } from '@/app/actions/dashboard';
+import { useState, useEffect, useCallback } from 'react';
 
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+
+interface DailyBurnRate {
+  date: string;
+  ordinaryCost: number;
+  depreciationCost: number;
+  projectCost: number;
+  totalDailyCost: number;
+}
 
 export default function Dashboard() {
   const { transactions, settings, categories, isLoading, investments, accounts } = useStore();
   const { t } = useTranslation();
 
-  // Filter for current month
+  // Me Inc. Metrics State
+  const [metrics, setMetrics] = useState<{
+    dailyBurnRate: DailyBurnRate[];
+  } | null>(null);
+
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
 
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      const startDate = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0];
+      const endDate = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0];
+      try {
+        const response = await getMeIncMetrics(startDate, endDate);
+        if (response.success && response.data) {
+          setMetrics(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch metrics:', error);
+      }
+    };
+    fetchMetrics();
+  }, [currentMonth, currentYear]);
+
+  const averageBurnRate = useMemo(() => {
+    if (!metrics?.dailyBurnRate?.length) return 0;
+    const total = metrics.dailyBurnRate.reduce((sum: number, day: DailyBurnRate) => sum + day.totalDailyCost, 0);
+    return total / metrics.dailyBurnRate.length;
+  }, [metrics]);
+
   const thisMonthTransactions = useMemo(() => transactions.filter(t => {
     const d = parseLocalDate(t.date);
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-  }), [transactions, currentMonth, currentYear]);
-
-  const lastMonthTransactions = useMemo(() => transactions.filter(t => {
-    const d = parseLocalDate(t.date);
-    // Handle Jan -> Dec wrap
-    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-    return d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
   }), [transactions, currentMonth, currentYear]);
 
   const thisMonthExpenses = useMemo(() =>
@@ -88,9 +115,7 @@ export default function Dashboard() {
   );
 
   // Investment Calculations - Match the logic from investments page
-  const activeInvestments = useMemo(() => investments.filter(i => i.status === 'ACTIVE'), [investments]);
-
-  const calculateInvestmentValue = (investment: typeof investments[0]): number => {
+  const calculateInvestmentValue = useCallback((investment: typeof investments[0]): number => {
     // Handle ASSET type with depreciation
     if (investment.type === 'ASSET' && investment.purchasePrice && investment.salvageValue !== null && investment.usefulLife && investment.depreciationType) {
       const depResult = calculateDepreciation(
@@ -116,38 +141,61 @@ export default function Dashboard() {
 
     // For other types, use currentAmount if available, otherwise initialAmount
     return investment.currentAmount ?? investment.initialAmount;
-  };
+  }, []);
 
-  const investmentItems = useMemo(() =>
-    activeInvestments.map(i => ({
-      amount: calculateInvestmentValue(i),
-      currencyCode: i.currencyCode
-    })),
-    [activeInvestments]
-  );
+  const activeInvestments = useMemo(() => investments.filter(i => i.status === 'ACTIVE'), [investments]);
 
-  const { total: totalInvested, loading: loadingInvested } = useCurrencyTotal(
-    investmentItems,
-    settings
-  );
+  // 1. Financial Investments (Stocks, Funds, Deposits) - Exclude Assets
+  const financialInvestmentItems = useMemo(() => {
+    const financialInvestments = activeInvestments.filter(i => i.type !== 'ASSET');
+    return financialInvestments.map(inv => ({
+      amount: calculateInvestmentValue(inv),
+      currencyCode: inv.currencyCode
+    }));
+  }, [activeInvestments, calculateInvestmentValue]);
+
+  const { total: totalFinancialInvested, loading: loadingFinancialInvested } = useCurrencyTotal(financialInvestmentItems, settings);
+
+  // 2. Fixed Assets
+  const fixedAssetItems = useMemo(() => {
+    const fixedAssets = activeInvestments.filter(i => i.type === 'ASSET');
+    return fixedAssets.map(inv => ({
+      amount: calculateInvestmentValue(inv),
+      currencyCode: inv.currencyCode
+    }));
+  }, [activeInvestments, calculateInvestmentValue]);
+
+  const { total: totalFixedAssets, loading: loadingFixedAssets } = useCurrencyTotal(fixedAssetItems, settings);
+
+  // 3. Cash Savings (Exclude Investment and Asset accounts to avoid double counting)
+  const cashAccountItems = useMemo(() => {
+    const cashAccounts = accounts.filter(a => a.type !== 'INVESTMENT' && a.type !== 'ASSET');
+    return cashAccounts.map(acc => ({
+      amount: acc.currentBalance,
+      currencyCode: acc.currencyCode
+    }));
+  }, [accounts]);
+
+  const { total: totalCash, loading: loadingCash } = useCurrencyTotal(cashAccountItems, settings);
+
+  // Total Net Worth (Capital Water Level)
+  const totalNetWorth = totalCash + totalFinancialInvested + totalFixedAssets;
 
   if (isLoading) {
     return <LoadingSpinner />;
   }
 
   return (
-    <div className="container max-w-2xl mx-auto p-4 pb-24 md:pt-24 space-y-8">
+    <div className="container max-w-7xl mx-auto p-4 pb-24 md:pt-24 space-y-8">
+      {/* Header */}
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">{t('dashboard.title')}</h1>
           <p className="text-muted-foreground text-sm">
-            {now.toLocaleDateString(settings.language === 'zh' ? 'zh-CN' : 'en-US', { month: 'long', year: 'numeric' })}
+            {new Date().toLocaleDateString(settings.language === 'zh' ? 'zh-CN' : 'en-US', { month: 'long', year: 'numeric' })}
           </p>
         </div>
-        <Link href="/settings" className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground">
-          <span className="sr-only">{t('nav.settings')}</span>
-          <div className="h-4 w-4 bg-primary rounded-full" />
-        </Link>
+
       </header>
 
       {/* Main Card */}
@@ -160,14 +208,14 @@ export default function Dashboard() {
             <div className="pr-8 border-r border-white/10">
               <p className="text-primary-foreground/80 text-sm font-medium mb-1">{t('dashboard.balance')}</p>
               <div className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight whitespace-nowrap">
-                {loadingAllTimeExpenses || loadingAllTimeIncome ? '...' : formatCurrency(allTimeIncome - allTimeTotal, settings.currency)}
+                {loadingCash ? '...' : formatCurrency(totalCash, settings.currency)}
               </div>
             </div>
 
             <div className="pl-8">
               <p className="text-primary-foreground/80 text-sm font-medium mb-1">{t('dashboard.invested')}</p>
               <div className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight whitespace-nowrap">
-                {loadingInvested ? '...' : formatCurrency(totalInvested, settings.currency)}
+                {loadingFinancialInvested ? '...' : formatCurrency(totalFinancialInvested, settings.currency)}
               </div>
             </div>
           </div>
@@ -215,6 +263,29 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Me Inc. Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-card border rounded-xl p-4 shadow-sm">
+          <h3 className="text-sm font-medium text-muted-foreground mb-2">{t('dashboard.daily_burn_rate')}</h3>
+          <div className="text-2xl font-bold">
+            {metrics ? formatCurrency(averageBurnRate, settings.currency) : '...'}
+            <span className="text-xs font-normal text-muted-foreground ml-1">/ {t('reports.range.daily')}</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {t('dashboard.burn_rate_desc')}
+          </p>
+        </div>
+        <div className="bg-card border rounded-xl p-4 shadow-sm">
+          <h3 className="text-sm font-medium text-muted-foreground mb-2">{t('dashboard.capital_water_level')}</h3>
+          <div className="text-2xl font-bold">
+            {loadingFinancialInvested || loadingFixedAssets || loadingCash ? '...' : formatCurrency(totalNetWorth, settings.currency)}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {t('dashboard.capital_desc')}
+          </p>
+        </div>
+      </div>
+
       {/* Account Cards */}
       {accounts.length > 0 && (
         <section className="space-y-4">
@@ -222,11 +293,11 @@ export default function Dashboard() {
             <h2 className="text-lg font-semibold">My Accounts</h2>
             <Link href="/accounts" className="text-sm text-primary hover:underline">Manage</Link>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
+          <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-4 md:overflow-visible md:snap-none">
             {accounts.map((account) => (
               <div
                 key={account.id}
-                className="min-w-[200px] snap-start bg-card border rounded-xl p-4 flex flex-col gap-2"
+                className="min-w-[200px] snap-start md:min-w-0 bg-card border rounded-xl p-4 flex flex-col gap-2"
                 style={{ borderLeftWidth: '4px', borderLeftColor: account.color || '#3B82F6' }}
               >
                 <div className="flex items-center gap-2">

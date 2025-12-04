@@ -63,6 +63,11 @@ export async function addInvestment(investment: Omit<Investment, 'id' | 'userId'
             });
         }
 
+        // 3. Validate Source Account for Financial Investments
+        if (investment.type !== 'ASSET' && !investment.accountId) {
+            throw new Error('Source account is required for financial investments');
+        }
+
         const newInvestment = await prisma.$transaction(async (tx) => {
             // Create the investment first
             const createdInvestment = await tx.investment.create({
@@ -70,6 +75,7 @@ export async function addInvestment(investment: Omit<Investment, 'id' | 'userId'
                     ...investment,
                     userId: userId,
                     lastDepreciationDate: investment.startDate, // Initialize with start date
+                    projectId: investment.projectId,
                 },
             });
 
@@ -98,21 +104,29 @@ export async function addInvestment(investment: Omit<Investment, 'id' | 'userId'
 
                 const transactionAmount = investment.purchasePrice || investment.initialAmount;
 
-                await tx.transaction.create({
-                    data: {
-                        userId: userId,
-                        amount: transactionAmount,
-                        currencyCode: investment.currencyCode,
-                        date: investment.startDate,
-                        type: 'TRANSFER',
-                        source: 'MANUAL',
-                        note: `Asset Acquisition: ${investment.name}`,
-                        merchant: 'Fixed Assets',
-                        investmentId: createdInvestment.id,
-                        accountId: investment.accountId, // From selected account
-                        transferToAccountId: fixedAssetsAccount.id, // To Fixed Assets
-                    }
-                });
+                // Only create transfer if source account is provided (optional for Assets?)
+                // If accountId is provided, we transfer from it.
+                // If not, maybe we should just create the asset without reducing cash? 
+                // But usually you pay for assets.
+                // Let's assume if accountId is present, we transfer.
+                if (investment.accountId) {
+                    await tx.transaction.create({
+                        data: {
+                            userId: userId,
+                            amount: transactionAmount,
+                            currencyCode: investment.currencyCode,
+                            date: investment.startDate,
+                            type: 'TRANSFER',
+                            source: 'MANUAL',
+                            note: `Asset Acquisition: ${investment.name}`,
+                            merchant: 'Fixed Assets',
+                            investmentId: createdInvestment.id,
+                            accountId: investment.accountId, // From selected account
+                            transferToAccountId: fixedAssetsAccount.id, // To Fixed Assets
+                            projectId: investment.projectId,
+                        }
+                    });
+                }
             } else {
                 // Stocks, Deposits, Funds are Transfers (Asset Transfer)
                 // From: Selected Account (Bank) -> To: Investment Portfolio Account
@@ -128,8 +142,9 @@ export async function addInvestment(investment: Omit<Investment, 'id' | 'userId'
                         note: `Investment: ${investment.name}`,
                         merchant: 'Investment Portfolio',
                         investmentId: createdInvestment.id,
-                        accountId: investment.accountId, // From this account
+                        accountId: investment.accountId!, // Enforced above
                         transferToAccountId: investmentAccount.id, // To Investment Portfolio
+                        projectId: investment.projectId,
                     }
                 });
             }
@@ -140,134 +155,7 @@ export async function addInvestment(investment: Omit<Investment, 'id' | 'userId'
         return newInvestment;
     }, 'Failed to add investment');
 }
-// This block was part of the original addInvestment function, but the provided edit replaces the entire function.
-// The original logic for ASSETs and Investment Portfolio accounts is removed by the provided edit.
-/*
-        // 1. Find or create "Investment" category (still needed for ASSET expenses)
-        let category = await prisma.category.findFirst({
-            where: {
-                userId: user.id,
-                name: 'Investment',
-                type: 'EXPENSE'
-            }
-        });
 
-        if (!category) {
-            category = await prisma.category.create({
-                data: {
-                    userId: user.id,
-                    name: 'Investment',
-                    icon: '📈',
-                    type: 'EXPENSE',
-                    isDefault: false
-                }
-            });
-        }
-
-        // 2. Find or create "Investment Portfolio" account (for financial investments)
-        let investmentAccount = await prisma.account.findFirst({
-            where: {
-                userId: user.id,
-                type: 'INVESTMENT',
-                name: 'Investment Portfolio'
-            }
-        });
-
-        if (!investmentAccount) {
-            investmentAccount = await prisma.account.create({
-                data: {
-                    userId: user.id,
-                    name: 'Investment Portfolio',
-                    type: 'INVESTMENT',
-                    initialBalance: 0,
-                    currencyCode: investment.currencyCode,
-                    icon: '💼',
-                    color: '#8884d8'
-                }
-            });
-        }
-
-        // 3. Create Investment and Transaction in a transaction
-        const newInvestment = await prisma.$transaction(async (tx) => {
-            // Create the investment first
-            const createdInvestment = await tx.investment.create({
-                data: {
-                    ...investment,
-                    userId: user.id,
-                    lastDepreciationDate: investment.startDate, // Initialize with start date
-                },
-            });
-
-            if (investment.type === 'ASSET') {
-                // ASSETs are now Transfers (Capitalization)
-                // From: Selected Account (Bank) -> To: Fixed Assets Account
-
-                // Find or create "Fixed Assets" account
-                let fixedAssetsAccount = await tx.account.findFirst({
-                    where: { userId: user.id, name: 'Fixed Assets', type: 'ASSET' }
-                });
-
-                if (!fixedAssetsAccount) {
-                    fixedAssetsAccount = await tx.account.create({
-                        data: {
-                            userId: user.id,
-                            name: 'Fixed Assets',
-                            type: 'ASSET',
-                            initialBalance: 0,
-                            currencyCode: investment.currencyCode,
-                            icon: '💻',
-                            color: '#82ca9d'
-                        }
-                    });
-                }
-
-                const transactionAmount = investment.purchasePrice || investment.initialAmount;
-
-                await tx.transaction.create({
-                    data: {
-                        userId: user.id,
-                        amount: transactionAmount,
-                        currencyCode: investment.currencyCode,
-                        date: investment.startDate,
-                        type: 'TRANSFER',
-                        source: 'MANUAL',
-                        note: `Asset Acquisition: ${investment.name}`,
-                        merchant: 'Fixed Assets',
-                        investmentId: createdInvestment.id,
-                        accountId: investment.accountId, // From selected account
-                        transferToAccountId: fixedAssetsAccount.id, // To Fixed Assets
-                    }
-                });
-            } else {
-                // Stocks, Deposits, Funds are Transfers (Asset Transfer)
-                // From: Selected Account (Bank) -> To: Investment Portfolio Account
-
-                await tx.transaction.create({
-                    data: {
-                        userId: user.id,
-                        amount: investment.initialAmount,
-                        currencyCode: investment.currencyCode,
-                        date: investment.startDate,
-                        type: 'TRANSFER',
-                        source: 'MANUAL',
-                        note: `Investment: ${investment.name}`,
-                        merchant: 'Investment Portfolio',
-                        investmentId: createdInvestment.id,
-                        accountId: investment.accountId, // From this account
-                        transferToAccountId: investmentAccount.id, // To Investment Portfolio
-                    }
-                });
-            }
-
-            return createdInvestment;
-        });
-
-        return { success: true, data: newInvestment };
-    } catch (error) {
-        console.error('Failed to add investment:', error);
-        return { success: false, error: 'Failed to add investment' };
-    }
-*/
 
 export async function recordDepreciation(id: string, amount: number, date: string) {
     return withAuth(async (userId) => {
@@ -343,86 +231,7 @@ export async function recordDepreciation(id: string, amount: number, date: strin
         return updatedInvestment;
     }, 'Failed to record depreciation');
 }
-/*
-// Original recordDepreciation logic, replaced by the provided edit.
-export async function recordDepreciation(id: string, amount: number, date: string) {
-    try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
-        }
 
-        const investment = await prisma.investment.findUnique({
-            where: { id },
-        });
-
-        if (!investment || investment.userId !== user.id) {
-            return { success: false, error: 'Investment not found' };
-        }
-
-        if (investment.type !== 'ASSET') {
-            return { success: false, error: 'Only assets can be depreciated' };
-        }
-
-        // Find "Fixed Assets" account
-        const fixedAssetsAccount = await prisma.account.findFirst({
-            where: { userId: user.id, name: 'Fixed Assets', type: 'ASSET' }
-        });
-
-        if (!fixedAssetsAccount) {
-            return { success: false, error: 'Fixed Assets account not found' };
-        }
-
-        // Find or create "Depreciation" category
-        let category = await prisma.category.findFirst({
-            where: { userId: user.id, name: 'Depreciation', type: 'EXPENSE' }
-        });
-
-        if (!category) {
-            category = await prisma.category.create({
-                data: { userId: user.id, name: 'Depreciation', icon: '📉', type: 'EXPENSE', isDefault: false }
-            });
-        }
-
-        const result = await prisma.$transaction(async (tx) => {
-            // 1. Create Expense Transaction (Depreciation)
-            // From Fixed Assets Account -> Expense
-            await tx.transaction.create({
-                data: {
-                    userId: user.id,
-                    amount: amount,
-                    currencyCode: investment.currencyCode,
-                    categoryId: category.id,
-                    date: date,
-                    type: 'EXPENSE',
-                    source: 'MANUAL',
-                    note: `Depreciation: ${investment.name}`,
-                    merchant: 'System',
-                    investmentId: investment.id,
-                    accountId: fixedAssetsAccount.id,
-                }
-            });
-
-            // 2. Update Investment Value
-            const updatedInvestment = await tx.investment.update({
-                where: { id },
-                data: {
-                    currentAmount: (investment.currentAmount || 0) - amount,
-                    lastDepreciationDate: date,
-                }
-            });
-
-            return updatedInvestment;
-        });
-
-        return { success: true, data: result };
-
-    } catch (error) {
-        console.error('Failed to record depreciation:', error);
-        return { success: false, error: 'Failed to record depreciation' };
-    }
-}
-*/
 
 export async function updateInvestment(id: string, updates: Partial<Investment>) {
     return withAuth(async (userId) => {
@@ -474,34 +283,7 @@ export async function updateInvestment(id: string, updates: Partial<Investment>)
         });
     }, 'Failed to update investment');
 }
-/*
-// Original updateInvestment logic, replaced by the provided edit.
-export async function updateInvestment(id: string, updates: Partial<Investment>) {
-    try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
-        }
 
-        const existing = await prisma.investment.findUnique({
-            where: { id },
-        });
-
-        if (!existing || existing.userId !== user.id) {
-            return { success: false, error: 'Investment not found or unauthorized' };
-        }
-
-        const updatedInvestment = await prisma.investment.update({
-            where: { id },
-            data: updates,
-        });
-        return { success: true, data: updatedInvestment };
-    } catch (error) {
-        console.error('Failed to update investment:', error);
-        return { success: false, error: 'Failed to update investment' };
-    }
-}
-*/
 
 export async function deleteInvestment(id: string) {
     try {
@@ -520,13 +302,31 @@ export async function deleteInvestment(id: string) {
 
         // Use transaction to delete investment and related transactions atomically
         await prisma.$transaction(async (tx) => {
-            // Delete related transactions using investmentId
+            // 1. Delete explicitly linked transactions
             await tx.transaction.deleteMany({
                 where: {
                     userId: user.id,
                     investmentId: id
                 }
             });
+
+            // 2. Attempt to find and delete unlinked transactions (legacy or bugged)
+            // This specifically targets the initial creation transaction
+            if (existing.initialAmount) {
+                await tx.transaction.deleteMany({
+                    where: {
+                        userId: user.id,
+                        investmentId: null, // Only delete if not linked
+                        amount: existing.initialAmount, // Match amount
+                        date: existing.startDate, // Match date
+                        OR: [
+                            { note: { contains: existing.name } },
+                            { note: `Investment: ${existing.name}` },
+                            { note: `Asset Acquisition: ${existing.name}` }
+                        ]
+                    }
+                });
+            }
 
             // Delete the investment
             await tx.investment.delete({
@@ -720,142 +520,14 @@ export async function closeInvestment(id: string, finalAmount: number, endDate: 
                                 merchant: 'Investment Portfolio',
                                 investmentId: id,
                                 accountId: accountId, // Deduct loss from user account (conceptually, or just record it)
-                                // Wait, if I lost money, I just receive less. 
-                                // Example: Invest 1000, Get back 800. Loss 200.
-                                // Transfer 1000 back? No, I only have 800 to transfer.
-                                // Correct Logic for Loss:
-                                // Transfer actual final amount (800).
-                                // Record Loss (200) as Expense? 
-                                // If I transfer 800, my Investment Account still has 200 left (1000 - 800).
-                                // I need to "spend" that 200 to zero out the investment account.
-                                // So: Expense 200 from Investment Account.
+
                             }
                         });
 
-                        // Correction for Loss Logic:
-                        // If Profit < 0 (Loss):
-                        // We need to balance the Investment Account.
-                        // Initial: 1000 in InvAcc.
-                        // Final: 800.
-                        // We transfer 800 from InvAcc to Bank. InvAcc has 200 left.
-                        // We create an Expense of 200 from InvAcc. InvAcc becomes 0.
                     }
                 }
-
-                // Refined Logic for Principal Transfer based on Loss/Gain
-                // Actually, it's simpler to:
-                // 1. Transfer the FINAL AMOUNT (what you actually got back).
-                // 2. Record the difference as Realized Gain/Loss for reporting.
-
-                // BUT, the user wants "Principal Return" + "Gain".
-                // If I transfer 1200 (1000 principal + 200 gain).
-                // InvAcc has -200? No. InvAcc should have increased by 200 before transfer?
-                // The "Mark-to-Market" updates should have kept InvAcc close to 1200.
-                // If user didn't update market value, InvAcc is 1000.
-                // If we transfer 1200, InvAcc becomes -200.
-                // We need to "Income" 200 into InvAcc first? Or just record Income in Bank?
-
-                // Let's stick to the User's Request:
-                // "Scenario B (Sell): Sell for $1200 (Principal $1000, Gain $200).
-                // Record: Transfer $1200 from Investment Account to Bank Card.
-                // If balance doesn't match, difference is Realized Capital Gain."
-
-                // So:
-                // 1. Transfer `finalAmount` from InvAcc to UserAcc.
-                // 2. Adjust InvAcc balance to 0 (since investment is closed).
-                //    The difference is the Gain/Loss.
-                //    If InvAcc had 1000, and we transferred 1200. It's -200. We need +200 Income in InvAcc to balance it?
-                //    Or we just record the Income in the UserAcc?
-
-                // User said: "Scenario A (Dividend): Receive $50 cash dividend. Record: Income Category = Investment Income, Amount = $50."
-
-                // Let's try this:
-                // 1. Transfer `finalAmount` from InvAcc to UserAcc.
-                // 2. We need to record the Gain/Loss for reporting purposes.
-                //    If we just Transfer, it's not an Income/Expense in reports.
-                //    But the user WANTS "Realized Capital Gain".
-
-                // Alternative (Accounting Standard):
-                // 1. Update InvAcc value to `finalAmount` (Unrealized Gain becomes Realized).
-                //    (This might involve an "Adjustment" transaction or just setting the value if we track lots).
-                // 2. Transfer `finalAmount` to UserAcc.
-
-                // Let's go with a hybrid approach that fits the app's simple transaction model:
-                // If Gain:
-                // 1. Transfer `initialAmount` (Principal) from InvAcc to UserAcc.
-                // 2. Income `profit` into UserAcc (Source: Investment Portfolio).
-                //    This matches "Scenario A" style for the gain part.
-                //    And Principal is returned.
-                //    InvAcc decreases by `initialAmount`.
-                //    Wait, if I updated market value, InvAcc might be higher.
-                //    We should probably just Transfer `finalAmount`.
-
-                // Let's follow the user's specific instruction for Scenario B:
-                // "Record: Transfer $1200 from Investment Account to Bank Card.
-                // At this point if account balance doesn't match, the difference is Realized Capital Gain."
-
-                // This implies the system should handle the balance adjustment.
-                // Since we don't have a complex double-entry ledger with automatic balancing,
-                // We should explicitly create the transactions.
-
-                // REVISED PLAN:
-                // 1. Transfer `finalAmount` from InvAcc to UserAcc.
-                // 2. Check InvAcc balance impact.
-                //    We need to "write off" the investment from the InvAcc.
-                //    The Investment was "worth" `initialAmount` (or updated amount) in the system.
-                //    Actually, we don't track per-investment balance in the Account model, just a total.
-                //    So we assume the InvAcc has the funds.
-
-                //    If we just Transfer `finalAmount`, and `finalAmount` > `initialAmount`, we are taking more money out of InvAcc than we put in (assuming no market updates).
-                //    So InvAcc balance drops below what it should be.
-                //    We need an INCOME transaction in InvAcc to represent the Gain?
-                //    Or we record the Gain as an INCOME in UserAcc, and only Transfer Principal?
-
-                //    User said: "Transfer $1200 from Investment Account".
-                //    This means the Transfer transaction amount is $1200.
-
-                //    To fix the InvAcc balance:
-                //    If Gain ($200): We need to add $200 to InvAcc so we can transfer it out?
-                //    Or we just accept InvAcc balance goes down?
-
-                //    Let's look at "Realized Capital Gain".
-                //    If we record an INCOME of $200 in UserAcc, and Transfer $1000. Total received $1200.
-                //    This seems cleanest for reports.
-                //    "Income: Investment Gain $200" -> Shows in reports.
-                //    "Transfer: $1000" -> Not in reports.
-                //    Total cash in Bank: +1200.
-                //    InvAcc: -1000. (Correctly removes the principal).
-
-                //    What if Loss ($200)? (Invest 1000, Get 800)
-                //    Transfer $800.
-                //    InvAcc: -800. (Still has 200 "phantom" balance).
-                //    We need to Expense $200 from InvAcc to clear it.
-                //    "Expense: Investment Loss $200" (from InvAcc).
-
-                //    This seems to work perfectly!
-
-                //    Summary:
-                //    Gain: Transfer Principal (Inv->Bank) + Income Profit (into Bank).
-                //          (Wait, user said Transfer 1200. If I do Transfer 1000 + Income 200, it's same net effect but 2 transactions).
-                //          (User said "Scenario B: Sell for 1200... Record: Transfer 1200... difference is Realized Capital Gain").
-                //          Maybe I should Transfer 1200, and then do a "Balance Adjustment" on InvAcc?
-                //          But "Balance Adjustment" isn't a transaction type I have easily.
-
-                //    Let's stick to the "Split" approach (Principal Transfer + Gain Income / Loss Expense).
-                //    It's accounting-correct and easy to implement.
-
-                //    Gain Case (1000 -> 1200):
-                //    1. Transfer 1000 (Inv -> Bank).
-                //    2. Income 200 (into Bank).
-                //    Net Bank: +1200. Net Inv: -1000. (Perfect).
-
-                //    Loss Case (1000 -> 800):
-                //    1. Transfer 800 (Inv -> Bank).
-                //    2. Expense 200 (from Inv).
-                //    Net Bank: +800. Net Inv: -1000 (-800 -200). (Perfect).
-
-                //    I will implement this logic.
             }
+            return updated;
         });
 
         return { success: true, data: updatedInvestment };

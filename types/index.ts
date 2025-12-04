@@ -16,6 +16,8 @@ export interface Transaction {
     feeCurrencyCode?: string;
     investmentId?: string;
     investment?: any; // Using any to avoid importing Prisma types here for now, or we can import if needed
+    projectId?: string;
+    excludeFromAnalytics?: boolean;
 }
 
 export interface Category {

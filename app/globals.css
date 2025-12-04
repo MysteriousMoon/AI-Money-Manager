@@ -21,6 +21,17 @@
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
   --radius-radius: var(--radius);
+
+  /* Me Inc. Design System Colors */
+  --color-cash: var(--cash);
+  --color-cash-foreground: var(--cash-foreground);
+  --color-accrual: var(--accrual);
+  --color-accrual-foreground: var(--accrual-foreground);
+  --color-project: var(--project);
+  --color-project-foreground: var(--project-foreground);
+
+  /* Font Family */
+  --font-mono: var(--font-geist-mono);
 }
 
 @layer base {
@@ -54,6 +65,17 @@
     --ring: 221.2 55% 50%;
 
     --radius: 0.5rem;
+
+    /* Me Inc. Colors (Light Mode) */
+    /* Cash: Emerald-500 */
+    --cash: 158.1 64.4% 51.6%;
+    --cash-foreground: 0 0% 100%;
+    /* Accrual: Indigo-500 */
+    --accrual: 238.7 83.5% 66.7%;
+    --accrual-foreground: 0 0% 100%;
+    /* Project: Amber-500 */
+    --project: 37.7 92.1% 50.2%;
+    --project-foreground: 0 0% 100%;
   }
 
   .dark {
@@ -84,6 +106,17 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 217.2 60% 60%;
+
+    /* Me Inc. Colors (Dark Mode) */
+    /* Cash: Emerald-400 (Neon) */
+    --cash: 158.1 64.4% 51.6%;
+    --cash-foreground: 0 0% 0%;
+    /* Accrual: Violet-400 (Neon) */
+    --accrual: 258.3 89.5% 66.3%;
+    --accrual-foreground: 0 0% 0%;
+    /* Project: Amber-400 (Neon) */
+    --project: 37.7 92.1% 50.2%;
+    --project-foreground: 0 0% 0%;
   }
 
   * {

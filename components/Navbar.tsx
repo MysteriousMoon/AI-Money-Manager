@@ -25,8 +25,9 @@ export function Navbar() {
     // Dropdown menu links
     const dropdownLinks = [
         { href: '/investments', label: t('nav.investments'), icon: TrendingUp },
-        { href: '/accounts', label: t('nav.accounts'), icon: Wallet },
         { href: '/recurring', label: t('nav.recurring'), icon: Repeat },
+        { href: '/projects', label: t('nav.projects'), icon: Wallet },
+        { href: '/accounts', label: t('nav.accounts'), icon: Wallet },
     ];
 
     // Check if dropdown item is active
@@ -76,8 +77,23 @@ export function Navbar() {
                     </Link>
                 ))}
 
-                {/* More dropdown */}
-                <div className="relative" ref={dropdownRef}>
+                {/* Desktop: Dropdown links inline */}
+                {dropdownLinks.map(({ href, label, icon: Icon }) => (
+                    <Link
+                        key={href}
+                        href={href}
+                        className={cn(
+                            "hidden md:flex flex-col items-center justify-center gap-1 text-xs font-medium transition-colors hover:text-primary md:flex-row md:text-sm md:gap-2",
+                            pathname === href ? "text-primary" : "text-muted-foreground"
+                        )}
+                    >
+                        <Icon className="h-5 w-5 md:h-4 md:w-4" />
+                        <span>{label}</span>
+                    </Link>
+                ))}
+
+                {/* Mobile: More dropdown */}
+                <div className="relative md:hidden" ref={dropdownRef}>
                     <button
                         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                         className={cn(

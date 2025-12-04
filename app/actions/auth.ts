@@ -106,6 +106,17 @@ export async function register(formData: FormData) {
                 name,
                 password, // Note: In a real app, hash this password!
                 role: 'USER',
+                accounts: {
+                    create: {
+                        name: 'Cash',
+                        type: 'CASH',
+                        initialBalance: 0,
+                        currencyCode: 'CNY',
+                        isDefault: true,
+                        color: '#10B981', // Emerald-500
+                        icon: '💵'
+                    }
+                }
             },
         });
 

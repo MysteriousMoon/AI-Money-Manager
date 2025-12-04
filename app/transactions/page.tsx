@@ -136,12 +136,20 @@ export default function TransactionsPage() {
                         <div key={date} className="space-y-2">
                             <h2 className="text-sm font-medium text-muted-foreground sticky top-0 bg-background/95 py-2 z-10 backdrop-blur-sm">
                                 {(() => {
-                                    // Parse date as local timezone to avoid offset issues
-                                    const [year, month, day] = date.split('-').map(Number);
-                                    const localDate = new Date(year, month - 1, day);
-                                    return format(localDate, t('transactions.date_format') === 'yyyy年M月d日' ? 'yyyy年M月d日' : 'MMMM d, yyyy', {
-                                        locale: t('transactions.date_format') === 'yyyy年M月d日' ? zhCN : enUS
-                                    });
+                                    try {
+                                        // Parse date as local timezone to avoid offset issues
+                                        const [year, month, day] = date.split('-').map(Number);
+                                        if (!year || !month || !day) throw new Error('Invalid date parts');
+
+                                        const localDate = new Date(year, month - 1, day);
+                                        if (isNaN(localDate.getTime())) throw new Error('Invalid date');
+
+                                        return format(localDate, t('transactions.date_format') === 'yyyy年M月d日' ? 'yyyy年M月d日' : 'MMMM d, yyyy', {
+                                            locale: t('transactions.date_format') === 'yyyy年M月d日' ? zhCN : enUS
+                                        });
+                                    } catch (e) {
+                                        return date; // Fallback to raw string if parsing fails
+                                    }
                                 })()}
                             </h2>
                             <div className="space-y-2">

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { recognizeReceipt } from '@/app/actions/recognize';
 import { recognizeTransfer } from '@/app/actions/recognizeTransfer';
-import { Camera, Upload, Check, X, Loader2, Plus, Trash2, Edit2, Save, ArrowRightLeft } from 'lucide-react';
+import { Camera, Upload, Check, ChevronDown, X, Loader2, Plus, Trash2, Edit2, Save, ArrowRightLeft } from 'lucide-react';
 import { cn, formatLocalDate } from '@/lib/utils';
 import { Transaction } from '@/types';
 import { useTranslation } from '@/lib/i18n';
@@ -21,6 +21,7 @@ function AddTransactionContent() {
     const categories = useStore((state) => state.categories);
     const userCategories = filterSystemCategories(categories); // Filter out system categories
     const accounts = useStore((state) => state.accounts);
+    const projects = useStore((state) => state.projects);
     const addTransaction = useStore((state) => state.addTransaction);
 
     const { t } = useTranslation();
@@ -34,6 +35,7 @@ function AddTransactionContent() {
 
     // Check if we're in transfer mode (from AI Transfer button)
     const isTransferMode = searchParams.get('mode') === 'transfer';
+
 
 
 
@@ -127,6 +129,9 @@ function AddTransactionContent() {
     const [date, setDate] = useState(formatLocalDate(new Date()));
     const [merchant, setMerchant] = useState('');
     const [note, setNote] = useState('');
+    const [projectId, setProjectId] = useState('');
+
+
 
     // Sync currency with account when account changes (including initial load if needed)
     useEffect(() => {
@@ -320,6 +325,7 @@ function AddTransactionContent() {
                         type: matchedCategory ? (matchedCategory.type as 'EXPENSE' | 'INCOME') : 'EXPENSE',
                         source: 'AI_SCAN',
                         accountId: matchedAccountId || undefined,
+                        projectId: undefined,
                     };
                 });
 
@@ -341,8 +347,10 @@ function AddTransactionContent() {
         }
     };
 
-    const handleManualSubmit = (e: React.FormEvent) => {
+    const handleManualSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Create Standard Transaction
         const newTransaction: Transaction = {
             id: crypto.randomUUID(),
             amount: parseFloat(amount),
@@ -359,8 +367,10 @@ function AddTransactionContent() {
             note,
             type: activeTab === 'transfer' ? 'TRANSFER' : (categories.find(c => c.id === categoryId)?.type as 'EXPENSE' | 'INCOME' || 'EXPENSE'),
             source: 'MANUAL',
+            projectId: projectId || undefined,
         };
-        addTransaction(newTransaction);
+        await addTransaction(newTransaction);
+
         startTransition(() => {
             router.push('/');
         });
@@ -406,13 +416,14 @@ function AddTransactionContent() {
             note: '',
             type: userCategories[0]?.type as 'EXPENSE' | 'INCOME' || 'EXPENSE',
             source: 'MANUAL',
+            projectId: undefined,
         };
         setPendingTransactions(prev => [...prev, newTx]);
     };
 
     if (isReviewing) {
         return (
-            <div className="container max-w-md mx-auto p-4 pb-24 md:pt-24 space-y-6">
+            <div className="container md:max-w-5xl mx-auto p-4 pb-24 md:pt-24 space-y-6">
                 <header className="flex items-center justify-between">
                     <h1 className="text-2xl font-bold">审核交易</h1>
                     <button onClick={() => { setIsReviewing(false); setPreviewUrls([]); setPendingTransactions([]); }} className="text-sm text-muted-foreground hover:text-foreground">取消</button>
@@ -536,6 +547,19 @@ function AddTransactionContent() {
                                         ))}
                                     </select>
                                 </div>
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground">Project</label>
+                                    <select
+                                        value={tx.projectId || ''}
+                                        onChange={(e) => handleUpdatePending(tx.id, { projectId: e.target.value || undefined })}
+                                        className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                                    >
+                                        <option value="">None</option>
+                                        {projects.filter(p => p.status === 'ACTIVE').map(p => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                             <div>
                                 <label className="text-xs font-medium text-muted-foreground">备注</label>
@@ -564,12 +588,12 @@ function AddTransactionContent() {
                         💡 提示: AI会自动将不同类别的商品拆分成多个交易
                     </p>
                 </div>
-            </div>
+            </div >
         );
     }
 
     return (
-        <div className="container max-w-md mx-auto p-4 pb-24 md:pt-24 space-y-6">
+        <div className="container md:max-w-5xl mx-auto p-4 pb-24 md:pt-24 space-y-6">
             <header className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">{t('add.title')}</h1>
                 <div className="flex bg-muted rounded-lg p-1 gap-1">
@@ -696,177 +720,59 @@ function AddTransactionContent() {
                 </div>
             ) : (
                 <form onSubmit={handleManualSubmit} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="space-y-4">
-                        <div className="grid gap-2">
-                            <label htmlFor="amount" className="text-sm font-medium">{t('add.amount')}</label>
-                            <div className="flex gap-2">
-                                <input
-                                    id="amount"
-                                    type="number"
-                                    inputMode="decimal"
-                                    step="0.01"
-                                    placeholder="0.00"
-                                    value={amount}
-                                    onChange={(e) => setAmount(e.target.value)}
-                                    className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-lg font-semibold ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                    required
-                                />
-                                {accountId ? (
-                                    <div className="h-12 flex items-center justify-center rounded-md border border-input bg-muted px-3 text-sm font-medium w-24 text-muted-foreground">
-                                        {currency}
-                                    </div>
-                                ) : (
-                                    <select
-                                        value={currency}
-                                        onChange={(e) => setCurrency(e.target.value)}
-                                        className="h-12 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-24"
-                                    >
-                                        {CURRENCIES.map((c) => (
-                                            <option key={c.code} value={c.code}>{c.name}</option>
-                                        ))}
-                                    </select>
-                                )}
-                            </div>
-                        </div>
-
-                        {activeTab === 'transfer' ? (
-                            <div className="space-y-3">
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="text-sm font-medium text-muted-foreground">{t('add.from_account')}</label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Left Column: Primary Details */}
+                        <div className="space-y-4">
+                            <div className="grid gap-2">
+                                <label htmlFor="amount" className="text-sm font-medium">{t('add.amount')}</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        id="amount"
+                                        type="number"
+                                        inputMode="decimal"
+                                        step="0.01"
+                                        placeholder="0.00"
+                                        value={amount}
+                                        onChange={(e) => setAmount(e.target.value)}
+                                        className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-lg font-semibold ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                        required
+                                    />
+                                    {accountId ? (
+                                        <div className="h-12 flex items-center justify-center rounded-md border border-input bg-muted px-3 text-sm font-medium w-24 text-muted-foreground">
+                                            {currency}
+                                        </div>
+                                    ) : (
                                         <select
-                                            value={accountId}
-                                            onChange={(e) => {
-                                                const newAccountId = e.target.value;
-                                                // If selecting the same account as transfer target, swap them
-                                                if (newAccountId === transferToAccountId) {
-                                                    setTransferToAccountId(accountId);
-                                                    // Update target currency for the swapped account
-                                                    const oldAccount = accounts.find(a => a.id === accountId);
-                                                    if (oldAccount) {
-                                                        setTargetCurrency(oldAccount.currencyCode);
-                                                        setFeeCurrency(oldAccount.currencyCode);
-                                                    }
-                                                }
-
-                                                setAccountId(newAccountId);
-                                                const account = accounts.find(a => a.id === newAccountId);
-                                                if (account) {
-                                                    setCurrency(account.currencyCode);
-                                                }
-                                            }}
-                                            className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-1"
-                                        >
-                                            {accounts.map((a) => (
-                                                <option key={a.id} value={a.id}>
-                                                    {a.icon} {a.name} ({formatCurrency(a.currentBalance, a.currencyCode)})
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="text-sm font-medium text-muted-foreground">{t('add.transfer_to')}</label>
-                                        <select
-                                            value={transferToAccountId}
-                                            onChange={(e) => {
-                                                const newAccountId = e.target.value;
-                                                setTransferToAccountId(newAccountId);
-                                                const account = accounts.find(a => a.id === newAccountId);
-                                                if (account) {
-                                                    setTargetCurrency(account.currencyCode);
-                                                    setFeeCurrency(account.currencyCode);
-                                                }
-                                            }}
-                                            className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-1"
-                                            required
-                                        >
-                                            <option value="">{t('add.select_account')}</option>
-                                            {accounts.filter(a => a.id !== accountId).map((a) => (
-                                                <option key={a.id} value={a.id}>
-                                                    {a.icon} {a.name} ({formatCurrency(a.currentBalance, a.currencyCode)})
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="text-sm font-medium text-muted-foreground">{t('add.target_amount')}</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            placeholder="0.00"
-                                            value={targetAmount || ''}
-                                            onChange={(e) => setTargetAmount(e.target.value)}
-                                            className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-lg font-semibold ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                        />
-                                        {transferToAccountId ? (
-                                            <div className="h-12 flex items-center justify-center rounded-md border border-input bg-muted px-3 text-sm font-medium w-24 text-muted-foreground">
-                                                {targetCurrency}
-                                            </div>
-                                        ) : (
-                                            <select
-                                                value={targetCurrency}
-                                                onChange={(e) => setTargetCurrency(e.target.value)}
-                                                className="h-12 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-24"
-                                            >
-                                                {CURRENCIES.map((c) => (
-                                                    <option key={c.code} value={c.code}>{c.name}</option>
-                                                ))}
-                                            </select>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="text-sm font-medium text-muted-foreground">{t('add.fee')}</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            placeholder="0.00"
-                                            value={fee}
-                                            onChange={(e) => setFee(e.target.value)}
-                                            className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-lg font-semibold ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                        />
-                                        <select
-                                            value={feeCurrency}
-                                            onChange={(e) => setFeeCurrency(e.target.value)}
+                                            value={currency}
+                                            onChange={(e) => setCurrency(e.target.value)}
                                             className="h-12 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-24"
                                         >
                                             {CURRENCIES.map((c) => (
                                                 <option key={c.code} value={c.code}>{c.name}</option>
                                             ))}
                                         </select>
-                                    </div>
+                                    )}
                                 </div>
                             </div>
-                        ) : (
-                            <div>
-                                <label className="text-sm font-medium text-muted-foreground">{t('add.account')}</label>
-                                <select
-                                    value={accountId}
-                                    onChange={(e) => {
-                                        const newAccountId = e.target.value;
-                                        setAccountId(newAccountId);
-                                        const account = accounts.find(a => a.id === newAccountId);
-                                        if (account) {
-                                            setCurrency(account.currencyCode);
-                                        }
-                                    }}
-                                    className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-1"
-                                >
-                                    {accounts.map((a) => (
-                                        <option key={a.id} value={a.id}>
-                                            {a.icon} {a.name} ({formatCurrency(a.currentBalance, a.currencyCode)})
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
 
-                        <div className="grid grid-cols-2 gap-3">
+                            {activeTab !== 'transfer' && (
+                                <div>
+                                    <label className="text-sm font-medium text-muted-foreground">{t('add.category')}</label>
+                                    <select
+                                        value={categoryId}
+                                        onChange={(e) => setCategoryId(e.target.value)}
+                                        className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-1"
+                                        required
+                                    >
+                                        {userCategories.map((c) => (
+                                            <option key={c.id} value={c.id}>
+                                                {c.icon} {c.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
                             <div>
                                 <label className="text-sm font-medium text-muted-foreground">{t('add.date')}</label>
                                 <input
@@ -877,52 +783,193 @@ function AddTransactionContent() {
                                     required
                                 />
                             </div>
-                            <div>
-                                <label className="text-sm font-medium text-muted-foreground">{t('add.category')}</label>
-                                <select
-                                    value={categoryId}
-                                    onChange={(e) => setCategoryId(e.target.value)}
-                                    className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-1"
-                                    required={activeTab !== 'transfer'}
-                                    disabled={activeTab === 'transfer'}
-                                >
-                                    {userCategories.map((c) => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.icon} {c.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+
+                            {activeTab !== 'transfer' && (
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium text-muted-foreground">{t('add.merchant')}</label>
+                                    <input
+                                        type="text"
+                                        value={merchant}
+                                        onChange={(e) => setMerchant(e.target.value)}
+                                        className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-1"
+                                        placeholder={t('add.optional')}
+                                    />
+                                </div>
+                            )}
                         </div>
 
-                        {activeTab !== 'transfer' && (
-                            <div>
-                                <label className="text-sm font-medium text-muted-foreground">{t('add.merchant')}</label>
-                                <input
-                                    type="text"
-                                    value={merchant}
-                                    onChange={(e) => setMerchant(e.target.value)}
-                                    placeholder="e.g. Starbucks"
-                                    className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-1"
+                        {/* Right Column: Account & Secondary Details */}
+                        <div className="space-y-4">
+                            {activeTab === 'transfer' ? (
+                                <div className="space-y-3">
+                                    <div className="grid grid-cols-1 gap-3">
+                                        <div>
+                                            <label className="text-sm font-medium text-muted-foreground">{t('add.from_account')}</label>
+                                            <select
+                                                value={accountId}
+                                                onChange={(e) => {
+                                                    const newAccountId = e.target.value;
+                                                    if (newAccountId === transferToAccountId) {
+                                                        setTransferToAccountId(accountId);
+                                                        const oldAccount = accounts.find(a => a.id === accountId);
+                                                        if (oldAccount) {
+                                                            setTargetCurrency(oldAccount.currencyCode);
+                                                            setFeeCurrency(oldAccount.currencyCode);
+                                                        }
+                                                    }
+                                                    setAccountId(newAccountId);
+                                                    const account = accounts.find(a => a.id === newAccountId);
+                                                    if (account) {
+                                                        setCurrency(account.currencyCode);
+                                                    }
+                                                }}
+                                                className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-1"
+                                            >
+                                                {accounts.map((a) => (
+                                                    <option key={a.id} value={a.id}>
+                                                        {a.icon} {a.name} ({formatCurrency(a.currentBalance, a.currencyCode)})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-sm font-medium text-muted-foreground">{t('add.transfer_to')}</label>
+                                            <select
+                                                value={transferToAccountId}
+                                                onChange={(e) => {
+                                                    const newAccountId = e.target.value;
+                                                    setTransferToAccountId(newAccountId);
+                                                    const account = accounts.find(a => a.id === newAccountId);
+                                                    if (account) {
+                                                        setTargetCurrency(account.currencyCode);
+                                                        setFeeCurrency(account.currencyCode);
+                                                    }
+                                                }}
+                                                className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-1"
+                                                required
+                                            >
+                                                <option value="">{t('add.select_account')}</option>
+                                                {accounts.filter(a => a.id !== accountId).map((a) => (
+                                                    <option key={a.id} value={a.id}>
+                                                        {a.icon} {a.name} ({formatCurrency(a.currentBalance, a.currencyCode)})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-sm font-medium text-muted-foreground">{t('add.target_amount')}</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    placeholder="0.00"
+                                                    value={targetAmount || ''}
+                                                    onChange={(e) => setTargetAmount(e.target.value)}
+                                                    className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-lg font-semibold ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                                />
+                                                {transferToAccountId ? (
+                                                    <div className="h-12 flex items-center justify-center rounded-md border border-input bg-muted px-3 text-sm font-medium w-24 text-muted-foreground">
+                                                        {targetCurrency}
+                                                    </div>
+                                                ) : (
+                                                    <select
+                                                        value={targetCurrency}
+                                                        onChange={(e) => setTargetCurrency(e.target.value)}
+                                                        className="h-12 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-24"
+                                                    >
+                                                        {CURRENCIES.map((c) => (
+                                                            <option key={c.code} value={c.code}>{c.name}</option>
+                                                        ))}
+                                                    </select>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="text-sm font-medium text-muted-foreground">{t('add.fee')}</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    placeholder="0.00"
+                                                    value={fee}
+                                                    onChange={(e) => setFee(e.target.value)}
+                                                    className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-lg font-semibold ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                                />
+                                                <select
+                                                    value={feeCurrency}
+                                                    onChange={(e) => setFeeCurrency(e.target.value)}
+                                                    className="h-12 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-24"
+                                                >
+                                                    {CURRENCIES.map((c) => (
+                                                        <option key={c.code} value={c.code}>{c.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className="text-sm font-medium text-muted-foreground">{t('add.account')}</label>
+                                    <select
+                                        value={accountId}
+                                        onChange={(e) => {
+                                            const newAccountId = e.target.value;
+                                            setAccountId(newAccountId);
+                                            const account = accounts.find(a => a.id === newAccountId);
+                                            if (account) {
+                                                setCurrency(account.currencyCode);
+                                            }
+                                        }}
+                                        className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-1"
+                                    >
+                                        {accounts.map((a) => (
+                                            <option key={a.id} value={a.id}>
+                                                {a.icon} {a.name} ({formatCurrency(a.currentBalance, a.currencyCode)})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {activeTab !== 'transfer' && (
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium text-muted-foreground">{t('add.project')}</label>
+                                    <div className="relative">
+                                        <select
+                                            value={projectId}
+                                            onChange={(e) => setProjectId(e.target.value)}
+                                            className="block h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-1 appearance-none"
+                                        >
+                                            <option value="">{t('add.project_none')}</option>
+                                            {projects.filter(p => p.status === 'ACTIVE').map(p => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium text-muted-foreground">{t('add.note')}</label>
+                                <textarea
+                                    value={note}
+                                    onChange={(e) => setNote(e.target.value)}
+                                    className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-1 min-h-[100px]"
+                                    placeholder={t('add.optional_desc')}
                                 />
                             </div>
-                        )}
-
-                        <div>
-                            <label className="text-sm font-medium text-muted-foreground">{t('add.note')}</label>
-                            <textarea
-                                value={note}
-                                onChange={(e) => setNote(e.target.value)}
-                                placeholder="Optional description..."
-                                rows={3}
-                                className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-1"
-                            />
                         </div>
                     </div>
 
                     <button
                         type="submit"
-                        className="w-full inline-flex items-center justify-center rounded-lg text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-12"
+                        className="w-full md:w-auto md:px-8 md:ml-auto inline-flex items-center justify-center rounded-lg text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-12"
                     >
                         <Check className="mr-2 h-4 w-4" />
                         {t('add.save')}

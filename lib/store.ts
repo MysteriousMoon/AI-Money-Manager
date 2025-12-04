@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { Transaction, Category, RecurringRule, AppSettings, DEFAULT_CATEGORIES, DEFAULT_SETTINGS } from '@/types';
-import { Investment } from '@prisma/client';
+import { Investment, Project } from '@prisma/client';
 import { getTransactions, addTransaction, deleteTransaction } from '@/app/actions/transaction';
 import { getCategories, addCategory, deleteCategory, updateCategory } from '@/app/actions/category';
 import { getSettings, updateSettings } from '@/app/actions/settings';
 import { getRecurringRules, addRecurringRule, updateRecurringRule, deleteRecurringRule } from '@/app/actions/recurring';
 import { getInvestments } from '@/app/actions/investment';
 import { getAccounts, createAccount, updateAccount, deleteAccount, type AccountWithBalance } from '@/app/actions/account';
+import { getProjects, createProject, updateProject, deleteProject } from '@/app/actions/project';
 
 // Helper to map raw transaction data to Transaction type with investment links
 function mapTransactions(rawTransactions: any[], investments: Investment[]): Transaction[] {
@@ -23,6 +24,7 @@ interface AppState {
     categories: Category[];
     recurringRules: RecurringRule[];
     investments: Investment[];
+    projects: Project[];
     accounts: AccountWithBalance[];
     settings: AppSettings;
     isLoading: boolean;
@@ -54,6 +56,11 @@ interface AppState {
     refreshAccounts: () => Promise<void>;
 
     updateSettings: (updates: Partial<AppSettings>) => Promise<void>;
+
+    // Project Actions
+    addProject: (project: Omit<Project, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+    updateProject: (id: string, updates: Partial<Project>) => Promise<void>;
+    deleteProject: (id: string) => Promise<void>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -61,6 +68,7 @@ export const useStore = create<AppState>((set, get) => ({
     categories: [], // Initialize empty, will fetch
     recurringRules: [],
     investments: [],
+    projects: [],
     accounts: [],
     settings: DEFAULT_SETTINGS,
     isLoading: true,
@@ -68,13 +76,14 @@ export const useStore = create<AppState>((set, get) => ({
     fetchInitialData: async () => {
         set({ isLoading: true });
         try {
-            const [txRes, catRes, setRes, recRes, invRes, accRes] = await Promise.all([
+            const [txRes, catRes, setRes, recRes, invRes, accRes, projRes] = await Promise.all([
                 getTransactions(),
                 getCategories(),
                 getSettings(),
                 getRecurringRules(),
                 getInvestments(),
-                getAccounts()
+                getAccounts(),
+                getProjects()
             ]);
 
             const investments = invRes.success && invRes.data ? invRes.data : [];
@@ -87,6 +96,7 @@ export const useStore = create<AppState>((set, get) => ({
                 })) : DEFAULT_CATEGORIES,
                 recurringRules: recRes.success && recRes.data ? recRes.data as RecurringRule[] : [],
                 investments: investments,
+                projects: projRes.success && projRes.data ? projRes.data : [],
                 accounts: accRes.success && accRes.data ? accRes.data : [],
                 settings: setRes.success && setRes.data ? setRes.data as AppSettings : DEFAULT_SETTINGS,
                 isLoading: false
@@ -301,6 +311,35 @@ export const useStore = create<AppState>((set, get) => ({
         const accRes = await getAccounts();
         if (accRes.success && accRes.data) {
             set({ accounts: accRes.data });
+        }
+    },
+
+    // Project Actions
+    addProject: async (project) => {
+        const res = await createProject(project);
+        if (res.success) {
+            const projRes = await getProjects();
+            if (projRes.success && projRes.data) {
+                set({ projects: projRes.data });
+            }
+        }
+    },
+    updateProject: async (id, updates) => {
+        const res = await updateProject(id, updates);
+        if (res.success) {
+            const projRes = await getProjects();
+            if (projRes.success && projRes.data) {
+                set({ projects: projRes.data });
+            }
+        }
+    },
+    deleteProject: async (id) => {
+        const res = await deleteProject(id);
+        if (res.success) {
+            const projRes = await getProjects();
+            if (projRes.success && projRes.data) {
+                set({ projects: projRes.data });
+            }
         }
     }
 }));

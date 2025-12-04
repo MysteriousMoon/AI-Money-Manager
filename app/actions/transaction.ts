@@ -37,6 +37,8 @@ export async function addTransaction(transaction: Transaction) {
                 targetCurrencyCode: transaction.targetCurrencyCode,
                 fee: transaction.fee,
                 feeCurrencyCode: transaction.feeCurrencyCode,
+                projectId: transaction.projectId,
+                excludeFromAnalytics: transaction.excludeFromAnalytics,
             },
         });
     }, 'Failed to add transaction');
@@ -81,6 +83,8 @@ export async function updateTransaction(id: string, updates: Partial<Transaction
                 targetCurrencyCode: updates.targetCurrencyCode,
                 fee: updates.fee,
                 feeCurrencyCode: updates.feeCurrencyCode,
+                projectId: updates.projectId,
+                excludeFromAnalytics: updates.excludeFromAnalytics,
             },
         });
     }, 'Failed to update transaction');
