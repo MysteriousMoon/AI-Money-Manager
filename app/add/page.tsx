@@ -10,6 +10,7 @@ import { cn, formatLocalDate } from '@/lib/utils';
 import { Transaction } from '@/types';
 import { useTranslation } from '@/lib/i18n';
 import { CURRENCIES, formatCurrency } from '@/lib/currency';
+import { filterSystemCategories } from '@/lib/category-utils';
 
 function AddTransactionContent() {
     const router = useRouter();
@@ -18,6 +19,7 @@ function AddTransactionContent() {
 
     const settings = useStore((state) => state.settings);
     const categories = useStore((state) => state.categories);
+    const userCategories = filterSystemCategories(categories); // Filter out system categories
     const accounts = useStore((state) => state.accounts);
     const addTransaction = useStore((state) => state.addTransaction);
 
@@ -111,7 +113,7 @@ function AddTransactionContent() {
 
     // Form State (for manual entry)
     const [amount, setAmount] = useState('');
-    const [categoryId, setCategoryId] = useState(categories[0]?.id || '');
+    const [categoryId, setCategoryId] = useState(userCategories[0]?.id || '');
     const [accountId, setAccountId] = useState(accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
     const [currency, setCurrency] = useState(() => {
         const defaultAccount = accounts.find(a => a.isDefault) || accounts[0];
@@ -277,8 +279,7 @@ function AddTransactionContent() {
                 return;
             }
 
-            // NORMAL MODE: Call recognizeReceipt
-            const categoryNames = categories.map(c => c.name);
+            const categoryNames = userCategories.map(c => c.name);
             console.log('[processImages] Categories:', categoryNames);
 
             const defaultAccount = accounts.find(a => a.id === settings.defaultAccountId);
@@ -399,11 +400,11 @@ function AddTransactionContent() {
             id: crypto.randomUUID(),
             amount: 0,
             currencyCode: settings.currency,
-            categoryId: categories[0]?.id || '',
+            categoryId: userCategories[0]?.id || '',
             date: new Date().toISOString().split('T')[0],
             merchant: '',
             note: '',
-            type: categories[0]?.type as 'EXPENSE' | 'INCOME' || 'EXPENSE',
+            type: userCategories[0]?.type as 'EXPENSE' | 'INCOME' || 'EXPENSE',
             source: 'MANUAL',
         };
         setPendingTransactions(prev => [...prev, newTx]);
@@ -492,7 +493,7 @@ function AddTransactionContent() {
                                         }}
                                         className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
                                     >
-                                        {categories.map(c => (
+                                        {userCategories.map(c => (
                                             <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
                                         ))}
                                     </select>
@@ -885,7 +886,7 @@ function AddTransactionContent() {
                                     required={activeTab !== 'transfer'}
                                     disabled={activeTab === 'transfer'}
                                 >
-                                    {categories.map((c) => (
+                                    {userCategories.map((c) => (
                                         <option key={c.id} value={c.id}>
                                             {c.icon} {c.name}
                                         </option>

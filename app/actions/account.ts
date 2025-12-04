@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/db';
-import { getCurrentUser } from './auth';
+import { getCurrentUser, withAuth } from './auth';
 
 export interface Account {
     id: string;
@@ -61,15 +61,10 @@ async function calculateAccountBalance(accountId: string): Promise<number> {
 }
 
 export async function getAccounts() {
-    try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
-        }
-
+    return withAuth(async (userId) => {
         const accounts = await prisma.account.findMany({
             where: {
-                userId: user.id,
+                userId: userId,
             },
             orderBy: [
                 { isDefault: 'desc' },
@@ -85,23 +80,15 @@ export async function getAccounts() {
             }))
         );
 
-        return { success: true, data: accountsWithBalance };
-    } catch (error) {
-        console.error('Failed to fetch accounts:', error);
-        return { success: false, error: 'Failed to fetch accounts' };
-    }
+        return accountsWithBalance;
+    }, 'Failed to fetch accounts');
 }
 
 export async function createAccount(account: Omit<Account, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) {
-    try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
-        }
-
+    return withAuth(async (userId) => {
         // If this is the first account or explicitly marked as default, set it as default
         const existingAccountsCount = await prisma.account.count({
-            where: { userId: user.id },
+            where: { userId: userId },
         });
 
         const isDefault = account.isDefault || existingAccountsCount === 0;
@@ -109,14 +96,14 @@ export async function createAccount(account: Omit<Account, 'id' | 'userId' | 'cr
         // If setting as default, unset other defaults
         if (isDefault) {
             await prisma.account.updateMany({
-                where: { userId: user.id, isDefault: true },
+                where: { userId: userId, isDefault: true },
                 data: { isDefault: false },
             });
         }
 
-        const newAccount = await prisma.account.create({
+        return await prisma.account.create({
             data: {
-                userId: user.id,
+                userId: userId,
                 name: account.name,
                 type: account.type,
                 initialBalance: account.initialBalance,
@@ -126,57 +113,37 @@ export async function createAccount(account: Omit<Account, 'id' | 'userId' | 'cr
                 isDefault,
             },
         });
-
-        return { success: true, data: newAccount };
-    } catch (error) {
-        console.error('Failed to create account:', error);
-        return { success: false, error: 'Failed to create account' };
-    }
+    }, 'Failed to create account');
 }
 
 export async function updateAccount(id: string, updates: Partial<Omit<Account, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>) {
-    try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
-        }
-
+    return withAuth(async (userId) => {
         // Verify ownership
         const existing = await prisma.account.findUnique({
             where: { id },
         });
 
-        if (!existing || existing.userId !== user.id) {
-            return { success: false, error: 'Account not found or unauthorized' };
+        if (!existing || existing.userId !== userId) {
+            throw new Error('Account not found or unauthorized');
         }
 
         // If setting as default, unset other defaults first
         if (updates.isDefault === true) {
             await prisma.account.updateMany({
-                where: { userId: user.id, isDefault: true, id: { not: id } },
+                where: { userId: userId, isDefault: true, id: { not: id } },
                 data: { isDefault: false },
             });
         }
 
-        const updatedAccount = await prisma.account.update({
+        return await prisma.account.update({
             where: { id },
             data: updates,
         });
-
-        return { success: true, data: updatedAccount };
-    } catch (error) {
-        console.error('Failed to update account:', error);
-        return { success: false, error: 'Failed to update account' };
-    }
+    }, 'Failed to update account');
 }
 
 export async function deleteAccount(id: string) {
-    try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
-        }
-
+    return withAuth(async (userId) => {
         // Verify ownership
         const existing = await prisma.account.findUnique({
             where: { id },
@@ -187,8 +154,8 @@ export async function deleteAccount(id: string) {
             },
         });
 
-        if (!existing || existing.userId !== user.id) {
-            return { success: false, error: 'Account not found or unauthorized' };
+        if (!existing || existing.userId !== userId) {
+            throw new Error('Account not found or unauthorized');
         }
 
         // Check if account has transactions
@@ -196,33 +163,20 @@ export async function deleteAccount(id: string) {
         const hasRecurringRules = existing.recurringRules.length > 0;
 
         if (hasTransactions || hasRecurringRules) {
-            return {
-                success: false,
-                error: 'Cannot delete account with existing transactions or recurring rules. Please move or delete them first.',
-            };
+            throw new Error('Cannot delete account with existing transactions or recurring rules. Please move or delete them first.');
         }
 
         await prisma.account.delete({
             where: { id },
         });
-
-        return { success: true };
-    } catch (error) {
-        console.error('Failed to delete account:', error);
-        return { success: false, error: 'Failed to delete account' };
-    }
+    }, 'Failed to delete account');
 }
 
 export async function getDefaultAccount() {
-    try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
-        }
-
+    return withAuth(async (userId) => {
         const defaultAccount = await prisma.account.findFirst({
             where: {
-                userId: user.id,
+                userId: userId,
                 isDefault: true,
             },
         });
@@ -230,16 +184,13 @@ export async function getDefaultAccount() {
         if (!defaultAccount) {
             // If no default account exists, return the first account
             const firstAccount = await prisma.account.findFirst({
-                where: { userId: user.id },
+                where: { userId: userId },
                 orderBy: { createdAt: 'asc' },
             });
 
-            return { success: true, data: firstAccount };
+            return firstAccount;
         }
 
-        return { success: true, data: defaultAccount };
-    } catch (error) {
-        console.error('Failed to fetch default account:', error);
-        return { success: false, error: 'Failed to fetch default account' };
-    }
+        return defaultAccount;
+    }, 'Failed to fetch default account');
 }

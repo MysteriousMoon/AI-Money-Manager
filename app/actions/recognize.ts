@@ -1,6 +1,7 @@
 'use server';
 
 import { AppSettings } from '@/types';
+import { callAIAPI } from '@/lib/ai-api';
 
 interface TransactionItem {
     name: string;
@@ -79,151 +80,23 @@ EXAMPLES:
 - Text: "Paid $25 for lunch at Chipotle" → Return 1 object with category "Food", currency "USD"
 - Text: "午饭 麦当劳 35" → Return 1 object with category "Food", amount 35, currency "${defaultCurrency}"`;
 
-    if (!apiKey) {
-        console.error('[recognizeReceipt] API Key is missing');
-        return { success: false, error: 'API Key is missing. Please configure it in Settings.' };
+    const result = await callAIAPI<RecognitionResult[]>(
+        settings,
+        SYSTEM_PROMPT,
+        images,
+        {
+            maxTokens: 20000,
+            jsonFormatPrompt: 'REQUIRED JSON FORMAT:\n[\n  {\n    "amount": number,\n    "currency": "ISO_CODE",\n    "merchant": "string",\n    "date": "YYYY-MM-DD",\n    "category": "string",\n    "summary": "string"\n  }\n]\nReturn ONLY raw JSON array. No markdown.'
+        }
+    );
+
+    if (!result.success) {
+        return { success: false, error: result.error };
     }
 
-    if (!apiBaseUrl) {
-        console.error('[recognizeReceipt] API Base URL is missing');
-        return { success: false, error: 'API Base URL is missing. Please configure it in Settings.' };
+    if (!Array.isArray(result.data) || result.data.length === 0) {
+        return { success: false, error: 'Invalid response format from AI' };
     }
 
-    if (!model) {
-        console.error('[recognizeReceipt] Model is missing');
-        return { success: false, error: 'Model is missing. Please configure it in Settings.' };
-    }
-
-    if (images.length === 0 && !text) {
-        return { success: false, error: 'No images or text provided.' };
-    }
-
-    try {
-        let endpoint = apiBaseUrl;
-        if (!endpoint.endsWith('/chat/completions')) {
-            endpoint = endpoint.replace(/\/+$/, '') + '/chat/completions';
-        }
-
-        console.log('[recognizeReceipt] Calling AI API:', endpoint);
-        console.log('[recognizeReceipt] Using model:', model);
-        console.log('[recognizeReceipt] Number of images:', images.length);
-        console.log('[recognizeReceipt] Text length:', text.length);
-        console.log('[recognizeReceipt] Categories:', categories.length);
-
-        // Log image sizes for diagnostics
-        images.forEach((img, idx) => {
-            const sizeKB = Math.round(img.length / 1024);
-            console.log(`[recognizeReceipt] Image ${idx + 1} size: ${sizeKB} KB`);
-        });
-
-        const contentParts: any[] = [
-            {
-                type: 'text',
-                text: SYSTEM_PROMPT + '\n\nREQUIRED JSON FORMAT:\n[\n  {\n    "amount": number,\n    "currency": "ISO_CODE",\n    "merchant": "string",\n    "date": "YYYY-MM-DD",\n    "category": "string",\n    "summary": "string"\n  }\n]\nReturn ONLY raw JSON array. No markdown.',
-            }
-        ];
-
-        images.forEach(imgBase64 => {
-            contentParts.push({
-                type: 'image_url',
-                image_url: { url: imgBase64 }
-            });
-        });
-
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: model,
-                messages: [
-                    {
-                        role: 'user',
-                        content: contentParts
-                    }
-                ],
-                max_tokens: 20000,
-                temperature: 0.2
-            })
-        });
-
-        const responseText = await response.text();
-        console.log('[recognizeReceipt] Raw AI Response:', responseText.substring(0, 500));
-
-        if (!response.ok) {
-            console.error('[recognizeReceipt] API Error:', response.status, responseText);
-            return {
-                success: false,
-                error: `API Error: ${response.status} - ${responseText.substring(0, 200)}`
-            };
-        }
-
-        const result = JSON.parse(responseText);
-
-        // Detailed diagnostics
-        console.log('[recognizeReceipt] Response structure:', {
-            hasChoices: !!result.choices,
-            choicesLength: result.choices?.length,
-            finishReason: result.choices?.[0]?.finish_reason,
-            hasContent: !!result.choices?.[0]?.message?.content,
-            contentLength: result.choices?.[0]?.message?.content?.length || 0,
-            usage: result.usage
-        });
-
-        const content = result.choices?.[0]?.message?.content;
-        const finishReason = result.choices?.[0]?.finish_reason;
-
-        if (!content || content.trim() === '') {
-            console.error('[recognizeReceipt] AI returned empty content');
-            console.error('[recognizeReceipt] Finish reason:', finishReason);
-            console.error('[recognizeReceipt] Full response:', JSON.stringify(result, null, 2));
-
-            // Provide more specific error messages
-            if (finishReason === 'stop' && result.usage?.completion_tokens === 0) {
-                return {
-                    success: false,
-                    error: 'AI model refused to generate content. This may be due to:\n' +
-                        '1. Safety filters blocking the image content\n' +
-                        '2. Image quality or format issues\n' +
-                        '3. Model configuration problems\n' +
-                        'Try a different image or check model settings.'
-                };
-            }
-
-            return {
-                success: false,
-                error: `AI returned empty response (finish_reason: ${finishReason})`
-            };
-        }
-
-        console.log('[recognizeReceipt] AI Content:', content);
-
-        // Clean JSON
-        let cleanedContent = content.trim();
-        if (cleanedContent.startsWith('```json')) {
-            cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/```\s*$/, '');
-        } else if (cleanedContent.startsWith('```')) {
-            cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/```\s*$/, '');
-        }
-
-        console.log('[recognizeReceipt] Cleaned content:', cleanedContent);
-
-        const parsed: RecognitionResult[] = JSON.parse(cleanedContent);
-
-        if (!Array.isArray(parsed) || parsed.length === 0) {
-            return { success: false, error: 'Invalid response format from AI' };
-        }
-
-        console.log('[recognizeReceipt] Successfully parsed:', parsed.length, 'transactions');
-        return { success: true, data: parsed };
-
-    } catch (error: any) {
-        console.error('[recognizeReceipt] Error:', error);
-        return {
-            success: false,
-            error: error.message || 'Unknown error occurred'
-        };
-    }
+    return { success: true, data: result.data };
 }

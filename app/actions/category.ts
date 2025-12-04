@@ -2,18 +2,13 @@
 
 import { prisma } from '@/lib/db';
 import { Category, DEFAULT_CATEGORIES } from '@/types';
-import { getCurrentUser } from './auth';
+import { getCurrentUser, withAuth } from './auth';
 
 export async function getCategories() {
-    try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
-        }
-
+    return withAuth(async (userId) => {
         const categories = await prisma.category.findMany({
             where: {
-                userId: user.id,
+                userId: userId,
             },
         });
         if (categories.length === 0) {
@@ -25,73 +20,47 @@ export async function getCategories() {
                     icon: c.icon,
                     type: c.type,
                     isDefault: true,
-                    userId: user.id,
+                    userId: userId,
                 }))
             });
-            return { success: true, data: DEFAULT_CATEGORIES };
+            return DEFAULT_CATEGORIES;
         }
-        return { success: true, data: categories };
-    } catch (error) {
-        console.error('Failed to fetch categories:', error);
-        return { success: false, error: 'Failed to fetch categories' };
-    }
+        return categories;
+    }, 'Failed to fetch categories');
 }
 
 export async function addCategory(category: Category) {
-    try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
-        }
-
-        const newCategory = await prisma.category.create({
+    return withAuth(async (userId) => {
+        return await prisma.category.create({
             data: {
                 id: category.id,
-                userId: user.id,
+                userId: userId,
                 name: category.name,
                 icon: category.icon,
                 type: category.type,
                 isDefault: false
             },
         });
-        return { success: true, data: newCategory };
-    } catch (error) {
-        console.error('Failed to add category:', error);
-        return { success: false, error: 'Failed to add category' };
-    }
+    }, 'Failed to add category');
 }
 
 export async function deleteCategory(id: string) {
-    try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
-        }
-
+    return withAuth(async (userId) => {
         await prisma.category.delete({
             where: {
                 id,
-                userId: user.id,
+                userId: userId,
             },
         });
-        return { success: true };
-    } catch (error) {
-        console.error('Failed to delete category:', error);
-        return { success: false, error: 'Failed to delete category' };
-    }
+    }, 'Failed to delete category');
 }
 
 export async function updateCategory(id: string, updates: Partial<Category>) {
-    try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
-        }
-
-        const updatedCategory = await prisma.category.update({
+    return withAuth(async (userId) => {
+        return await prisma.category.update({
             where: {
                 id,
-                userId: user.id,
+                userId: userId,
             },
             data: {
                 name: updates.name,
@@ -99,9 +68,5 @@ export async function updateCategory(id: string, updates: Partial<Category>) {
                 type: updates.type,
             },
         });
-        return { success: true, data: updatedCategory };
-    } catch (error) {
-        console.error('Failed to update category:', error);
-        return { success: false, error: 'Failed to update category' };
-    }
+    }, 'Failed to update category');
 }

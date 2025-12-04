@@ -8,6 +8,8 @@ import Link from 'next/link';
 import { formatCurrency } from '@/lib/currency';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
+import { isSystemCategory } from '@/lib/category-utils';
+import { calculateDepreciation } from '@/lib/depreciation';
 
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
@@ -33,11 +35,36 @@ export default function Dashboard() {
     return d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
   }), [transactions, currentMonth, currentYear]);
 
-  const thisMonthExpenses = useMemo(() => thisMonthTransactions.filter(t => t.type === 'EXPENSE'), [thisMonthTransactions]);
+  const thisMonthExpenses = useMemo(() =>
+    thisMonthTransactions.filter(t => {
+      if (t.type !== 'EXPENSE') return false;
+      // Exclude system asset categories (Investment, Depreciation) to prevent double-counting
+      // These are tracked separately in the Investment module
+      const category = categories.find(c => c.id === t.categoryId);
+      if (category && (category.name === 'Investment' || category.name === 'Depreciation')) {
+        return false;
+      }
+      return true;
+    }),
+    [thisMonthTransactions, categories]
+  );
+
   const thisMonthIncomeList = useMemo(() => thisMonthTransactions.filter(t => t.type === 'INCOME'), [thisMonthTransactions]);
 
   // All-time calculations for Main Card
-  const allTimeExpenses = useMemo(() => transactions.filter(t => t.type === 'EXPENSE'), [transactions]);
+  const allTimeExpenses = useMemo(() =>
+    transactions.filter(t => {
+      if (t.type !== 'EXPENSE') return false;
+      // Exclude system asset categories (Investment, Depreciation)
+      const category = categories.find(c => c.id === t.categoryId);
+      if (category && (category.name === 'Investment' || category.name === 'Depreciation')) {
+        return false;
+      }
+      return true;
+    }),
+    [transactions, categories]
+  );
+
   const allTimeIncomeList = useMemo(() => transactions.filter(t => t.type === 'INCOME'), [transactions]);
 
   const { total: thisMonthTotal, loading: loadingThis } = useCurrencyTotal(
@@ -60,12 +87,44 @@ export default function Dashboard() {
     settings
   );
 
-  // Investment Calculations
+  // Investment Calculations - Match the logic from investments page
   const activeInvestments = useMemo(() => investments.filter(i => i.status === 'ACTIVE'), [investments]);
-  const investmentItems = useMemo(() => activeInvestments.map(i => ({
-    amount: i.currentAmount ?? i.initialAmount,
-    currencyCode: i.currencyCode
-  })), [activeInvestments]);
+
+  const calculateInvestmentValue = (investment: typeof investments[0]): number => {
+    // Handle ASSET type with depreciation
+    if (investment.type === 'ASSET' && investment.purchasePrice && investment.salvageValue !== null && investment.usefulLife && investment.depreciationType) {
+      const depResult = calculateDepreciation(
+        investment.purchasePrice,
+        investment.salvageValue,
+        investment.usefulLife,
+        investment.depreciationType as 'STRAIGHT_LINE' | 'DECLINING_BALANCE',
+        investment.startDate
+      );
+      return depResult.bookValue;
+    }
+
+    // Handle DEPOSIT type with interest calculation
+    if (investment.type === 'DEPOSIT' && investment.interestRate) {
+      const principal = investment.initialAmount;
+      const rate = investment.interestRate / 100;
+      const start = new Date(investment.startDate);
+      const end = investment.endDate ? new Date(investment.endDate) : new Date();
+      const years = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 365);
+      const interest = principal * rate * Math.max(0, years);
+      return principal + interest;
+    }
+
+    // For other types, use currentAmount if available, otherwise initialAmount
+    return investment.currentAmount ?? investment.initialAmount;
+  };
+
+  const investmentItems = useMemo(() =>
+    activeInvestments.map(i => ({
+      amount: calculateInvestmentValue(i),
+      currencyCode: i.currencyCode
+    })),
+    [activeInvestments]
+  );
 
   const { total: totalInvested, loading: loadingInvested } = useCurrencyTotal(
     investmentItems,

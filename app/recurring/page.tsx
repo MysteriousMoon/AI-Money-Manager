@@ -8,11 +8,13 @@ import { cn, formatLocalDate } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
 import { CURRENCIES } from '@/lib/currency';
 import { recognizeRecurring } from '@/app/actions/recognizeRecurring';
+import { filterSystemCategories } from '@/lib/category-utils';
 
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function RecurringPage() {
     const { recurringRules, categories, accounts, addRecurringRule, updateRecurringRule, deleteRecurringRule, addTransaction, settings, isLoading } = useStore();
+    const userCategories = filterSystemCategories(categories); // Filter out system categories
     const { t } = useTranslation();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -21,7 +23,7 @@ export default function RecurringPage() {
     // Form State
     const [name, setName] = useState('');
     const [amount, setAmount] = useState('');
-    const [categoryId, setCategoryId] = useState(categories[0]?.id || '');
+    const [categoryId, setCategoryId] = useState(userCategories[0]?.id || '');
     const [accountId, setAccountId] = useState(accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
     const [currencyCode, setCurrencyCode] = useState(settings.currency);
     const [frequency, setFrequency] = useState<RecurringRule['frequency']>('MONTHLY');
@@ -228,7 +230,7 @@ export default function RecurringPage() {
             const result = await recognizeRecurring(
                 previewUrls,
                 settings,
-                categories.map(c => c.name),
+                userCategories.map(c => c.name),
                 scanText,
                 settings.currency
             );
@@ -265,7 +267,7 @@ export default function RecurringPage() {
     const resetForm = () => {
         setName('');
         setAmount('');
-        setCategoryId(categories[0]?.id || '');
+        setCategoryId(userCategories[0]?.id || '');
         setAccountId(accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
         setCurrencyCode(settings.currency);
         setFrequency('MONTHLY');
@@ -413,7 +415,7 @@ export default function RecurringPage() {
                                         onChange={(e) => setCategoryId(e.target.value)}
                                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                     >
-                                        {categories.map(c => (
+                                        {userCategories.map(c => (
                                             <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
                                         ))}
                                     </select>
@@ -649,7 +651,7 @@ export default function RecurringPage() {
                                                     onChange={(e) => setCategoryId(e.target.value)}
                                                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                                 >
-                                                    {categories.map(c => (
+                                                    {userCategories.map(c => (
                                                         <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
                                                     ))}
                                                 </select>

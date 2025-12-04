@@ -2,37 +2,147 @@
 
 import { prisma } from '@/lib/db';
 import { Investment } from '@prisma/client';
-import { getCurrentUser } from './auth';
+import { getCurrentUser, withAuth } from './auth';
 
 export async function getInvestments() {
-    try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
-        }
-
-        const investments = await prisma.investment.findMany({
+    return withAuth(async (userId) => {
+        return await prisma.investment.findMany({
             where: {
-                userId: user.id,
+                userId: userId,
             },
             orderBy: {
                 createdAt: 'desc',
             },
         });
-        return { success: true, data: investments };
-    } catch (error) {
-        console.error('Failed to fetch investments:', error);
-        return { success: false, error: 'Failed to fetch investments' };
-    }
+    }, 'Failed to fetch investments');
 }
 
 export async function addInvestment(investment: Omit<Investment, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) {
-    try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
+    return withAuth(async (userId) => {
+        // 1. Find or create "Investment" category (still needed for ASSET expenses)
+        let category = await prisma.category.findFirst({
+            where: {
+                userId: userId,
+                name: 'Investment',
+                type: 'EXPENSE'
+            }
+        });
+
+        if (!category) {
+            category = await prisma.category.create({
+                data: {
+                    userId: userId,
+                    name: 'Investment',
+                    icon: '📈',
+                    type: 'EXPENSE',
+                    isDefault: false
+                }
+            });
         }
 
+        // 2. Find or create "Investment Portfolio" account (for financial investments)
+        let investmentAccount = await prisma.account.findFirst({
+            where: {
+                userId: userId,
+                type: 'INVESTMENT',
+                name: 'Investment Portfolio'
+            }
+        });
+
+        if (!investmentAccount) {
+            investmentAccount = await prisma.account.create({
+                data: {
+                    userId: userId,
+                    name: 'Investment Portfolio',
+                    type: 'INVESTMENT',
+                    initialBalance: 0,
+                    currencyCode: investment.currencyCode,
+                    icon: '💼',
+                    color: '#8884d8'
+                }
+            });
+        }
+
+        const newInvestment = await prisma.$transaction(async (tx) => {
+            // Create the investment first
+            const createdInvestment = await tx.investment.create({
+                data: {
+                    ...investment,
+                    userId: userId,
+                    lastDepreciationDate: investment.startDate, // Initialize with start date
+                },
+            });
+
+            if (investment.type === 'ASSET') {
+                // ASSETs are now Transfers (Capitalization)
+                // From: Selected Account (Bank) -> To: Fixed Assets Account
+
+                // Find or create "Fixed Assets" account
+                let fixedAssetsAccount = await tx.account.findFirst({
+                    where: { userId: userId, name: 'Fixed Assets', type: 'ASSET' }
+                });
+
+                if (!fixedAssetsAccount) {
+                    fixedAssetsAccount = await tx.account.create({
+                        data: {
+                            userId: userId,
+                            name: 'Fixed Assets',
+                            type: 'ASSET',
+                            initialBalance: 0,
+                            currencyCode: investment.currencyCode,
+                            icon: '💻',
+                            color: '#82ca9d'
+                        }
+                    });
+                }
+
+                const transactionAmount = investment.purchasePrice || investment.initialAmount;
+
+                await tx.transaction.create({
+                    data: {
+                        userId: userId,
+                        amount: transactionAmount,
+                        currencyCode: investment.currencyCode,
+                        date: investment.startDate,
+                        type: 'TRANSFER',
+                        source: 'MANUAL',
+                        note: `Asset Acquisition: ${investment.name}`,
+                        merchant: 'Fixed Assets',
+                        investmentId: createdInvestment.id,
+                        accountId: investment.accountId, // From selected account
+                        transferToAccountId: fixedAssetsAccount.id, // To Fixed Assets
+                    }
+                });
+            } else {
+                // Stocks, Deposits, Funds are Transfers (Asset Transfer)
+                // From: Selected Account (Bank) -> To: Investment Portfolio Account
+
+                await tx.transaction.create({
+                    data: {
+                        userId: userId,
+                        amount: investment.initialAmount,
+                        currencyCode: investment.currencyCode,
+                        date: investment.startDate,
+                        type: 'TRANSFER',
+                        source: 'MANUAL',
+                        note: `Investment: ${investment.name}`,
+                        merchant: 'Investment Portfolio',
+                        investmentId: createdInvestment.id,
+                        accountId: investment.accountId, // From this account
+                        transferToAccountId: investmentAccount.id, // To Investment Portfolio
+                    }
+                });
+            }
+
+            return createdInvestment;
+        });
+
+        return newInvestment;
+    }, 'Failed to add investment');
+}
+// This block was part of the original addInvestment function, but the provided edit replaces the entire function.
+// The original logic for ASSETs and Investment Portfolio accounts is removed by the provided edit.
+/*
         // 1. Find or create "Investment" category (still needed for ASSET expenses)
         let category = await prisma.category.findFirst({
             where: {
@@ -157,8 +267,84 @@ export async function addInvestment(investment: Omit<Investment, 'id' | 'userId'
         console.error('Failed to add investment:', error);
         return { success: false, error: 'Failed to add investment' };
     }
-}
+*/
 
+export async function recordDepreciation(id: string, amount: number, date: string) {
+    return withAuth(async (userId) => {
+        // Verify ownership
+        const existing = await prisma.investment.findUnique({
+            where: { id },
+        });
+
+        if (!existing || existing.userId !== userId) {
+            throw new Error('Investment not found or unauthorized');
+        }
+
+        // Update investment current value
+        // Calculate new currentAmount properly (don't use decrement on null)
+        const currentValue = existing.currentAmount ?? existing.purchasePrice ?? existing.initialAmount;
+        const newValue = Math.max(currentValue - amount, existing.salvageValue ?? 0);
+
+        const updatedInvestment = await prisma.investment.update({
+            where: { id },
+            data: {
+                currentAmount: newValue,
+                lastDepreciationDate: date
+            }
+        });
+
+        // Create a depreciation transaction (Expense)
+        // Find or create Depreciation category
+        let category = await prisma.category.findFirst({
+            where: {
+                userId: userId,
+                name: 'Depreciation',
+            },
+        });
+
+        if (!category) {
+            category = await prisma.category.create({
+                data: {
+                    userId: userId,
+                    name: 'Depreciation',
+                    type: 'EXPENSE',
+                    icon: 'trending-down',
+                    isDefault: false,
+                },
+            });
+        }
+
+        // Find Fixed Assets account
+        const fixedAssetsAccount = await prisma.account.findFirst({
+            where: {
+                userId: userId,
+                name: 'Fixed Assets',
+                type: 'ASSET'
+            }
+        });
+
+        // Create transaction
+        await prisma.transaction.create({
+            data: {
+                userId: userId,
+                amount: amount,
+                currencyCode: existing.currencyCode,
+                categoryId: category.id,
+                date: date,
+                type: 'EXPENSE',
+                source: 'MANUAL',
+                note: `Depreciation: ${existing.name}`,
+                merchant: 'System',
+                investmentId: existing.id,
+                accountId: fixedAssetsAccount?.id, // Link to Fixed Assets account
+            },
+        });
+
+        return updatedInvestment;
+    }, 'Failed to record depreciation');
+}
+/*
+// Original recordDepreciation logic, replaced by the provided edit.
 export async function recordDepreciation(id: string, amount: number, date: string) {
     try {
         const user = await getCurrentUser();
@@ -236,7 +422,60 @@ export async function recordDepreciation(id: string, amount: number, date: strin
         return { success: false, error: 'Failed to record depreciation' };
     }
 }
+*/
 
+export async function updateInvestment(id: string, updates: Partial<Investment>) {
+    return withAuth(async (userId) => {
+        // Verify ownership
+        const existing = await prisma.investment.findUnique({
+            where: { id },
+        });
+
+        if (!existing || existing.userId !== userId) {
+            throw new Error('Investment not found or unauthorized');
+        }
+
+        // Use transaction to update both investment and related transaction
+        return await prisma.$transaction(async (tx) => {
+            const updatedInvestment = await tx.investment.update({
+                where: { id },
+                data: updates,
+            });
+
+            // If initialAmount or purchasePrice changed, update the associated TRANSFER transaction
+            if (updates.initialAmount !== undefined || updates.purchasePrice !== undefined) {
+                const newAmount = updates.purchasePrice ?? updates.initialAmount;
+
+                if (newAmount !== undefined) {
+                    // Find the original creation transaction (TRANSFER)
+                    const creationTx = await tx.transaction.findFirst({
+                        where: {
+                            investmentId: id,
+                            type: 'TRANSFER',
+                            // Usually the first one is the creation one
+                        },
+                        orderBy: {
+                            createdAt: 'asc'
+                        }
+                    });
+
+                    if (creationTx) {
+                        await tx.transaction.update({
+                            where: { id: creationTx.id },
+                            data: {
+                                amount: newAmount
+                            }
+                        });
+                    }
+                }
+            }
+
+            return updatedInvestment;
+        });
+    }, 'Failed to update investment');
+}
+/*
+// Original updateInvestment logic, replaced by the provided edit.
 export async function updateInvestment(id: string, updates: Partial<Investment>) {
     try {
         const user = await getCurrentUser();
@@ -262,6 +501,7 @@ export async function updateInvestment(id: string, updates: Partial<Investment>)
         return { success: false, error: 'Failed to update investment' };
     }
 }
+*/
 
 export async function deleteInvestment(id: string) {
     try {
@@ -347,33 +587,59 @@ export async function closeInvestment(id: string, finalAmount: number, endDate: 
             });
 
             if (existing.type === 'ASSET') {
-                // ASSET logic remains the same: It's a "Redeem" which is basically selling the asset
-                // We treat it as Income (selling used phone)
+                // ASSET logic: Sell the asset
+                // Create a TRANSFER from Fixed Assets -> User Account (Bank)
+                // This reduces Fixed Assets balance and increases User Account balance
 
-                let category = await prisma.category.findFirst({
-                    where: { userId: user.id, name: 'Investment Return', type: 'INCOME' }
+                // Find Fixed Assets account
+                const fixedAssetsAccount = await tx.account.findFirst({
+                    where: { userId: user.id, name: 'Fixed Assets', type: 'ASSET' }
                 });
-                if (!category) {
-                    category = await prisma.category.create({
-                        data: { userId: user.id, name: 'Investment Return', icon: '💰', type: 'INCOME', isDefault: false }
+
+                if (fixedAssetsAccount && accountId) {
+                    await tx.transaction.create({
+                        data: {
+                            userId: user.id,
+                            amount: finalAmount,
+                            currencyCode: existing.currencyCode,
+                            date: endDate,
+                            type: 'TRANSFER',
+                            source: 'MANUAL',
+                            note: `Asset Sold: ${existing.name}`,
+                            merchant: 'Second-hand Market',
+                            investmentId: id,
+                            accountId: fixedAssetsAccount.id, // From Fixed Assets
+                            transferToAccountId: accountId,   // To User Account
+                        }
+                    });
+                } else {
+                    // Fallback to INCOME if no account selected or Fixed Assets not found
+                    // (Though Fixed Assets should exist)
+                    let category = await prisma.category.findFirst({
+                        where: { userId: user.id, name: 'Investment Return', type: 'INCOME' }
+                    });
+                    if (!category) {
+                        category = await prisma.category.create({
+                            data: { userId: user.id, name: 'Investment Return', icon: '💰', type: 'INCOME', isDefault: false }
+                        });
+                    }
+
+                    await tx.transaction.create({
+                        data: {
+                            userId: user.id,
+                            amount: finalAmount,
+                            currencyCode: existing.currencyCode,
+                            categoryId: category.id,
+                            date: endDate,
+                            type: 'INCOME',
+                            source: 'MANUAL',
+                            note: `Asset Sold: ${existing.name}`,
+                            merchant: 'Second-hand Market',
+                            investmentId: id,
+                            accountId: accountId,
+                        }
                     });
                 }
-
-                await tx.transaction.create({
-                    data: {
-                        userId: user.id,
-                        amount: finalAmount,
-                        currencyCode: existing.currencyCode,
-                        categoryId: category.id,
-                        date: endDate,
-                        type: 'INCOME',
-                        source: 'MANUAL',
-                        note: `Asset Sold: ${existing.name}`,
-                        merchant: 'Second-hand Market',
-                        investmentId: id,
-                        accountId: accountId,
-                    }
-                });
 
             } else {
                 // Financial Instruments (Stock, Fund, Deposit)

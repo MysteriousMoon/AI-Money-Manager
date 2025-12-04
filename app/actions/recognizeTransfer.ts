@@ -1,6 +1,7 @@
 'use server';
 
 import { AppSettings } from '@/types';
+import { callAIAPI } from '@/lib/ai-api';
 
 interface TransferRecognitionResult {
     fromAccount: string;
@@ -73,87 +74,28 @@ EXAMPLES:
 - "Wire $1000 from Chase to Wells Fargo, fee $25" → fromAccount="Chase", toAccount="Wells Fargo", amount=1000, currency="USD", fee=25
 - Image of Alipay transfer showing 100 CNY sent → Extract all visible details`;
 
-    if (!apiKey || !apiBaseUrl || !model) {
-        return { success: false, error: 'API configuration missing' };
-    }
-
     if (images.length === 0 && !text) {
         return { success: false, error: 'No images or text provided' };
     }
 
-    try {
-        let endpoint = apiBaseUrl;
-        if (!endpoint.endsWith('/chat/completions')) {
-            endpoint = endpoint.replace(/\/+$/, '') + '/chat/completions';
+    const result = await callAIAPI<TransferRecognitionResult>(
+        settings,
+        SYSTEM_PROMPT,
+        images,
+        {
+            maxTokens: 2000,
+            jsonFormatPrompt: 'Return ONLY raw JSON object. No markdown.'
         }
+    );
 
-        console.log('[recognizeTransfer] Calling AI API for transfer recognition');
-
-        const contentParts: any[] = [
-            {
-                type: 'text',
-                text: SYSTEM_PROMPT + '\n\nReturn ONLY raw JSON object. No markdown.'
-            }
-        ];
-
-        images.forEach(imgBase64 => {
-            contentParts.push({
-                type: 'image_url',
-                image_url: { url: imgBase64 }
-            });
-        });
-
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: model,
-                messages: [
-                    {
-                        role: 'user',
-                        content: contentParts
-                    }
-                ],
-                max_tokens: 2000,
-                temperature: 0.2
-            })
-        });
-
-        const responseText = await response.text();
-
-        if (!response.ok) {
-            console.error('[recognizeTransfer] API Error:', response.status, responseText);
-            return { success: false, error: `API Error: ${response.status}` };
-        }
-
-        const result = JSON.parse(responseText);
-        const content = result.choices?.[0]?.message?.content;
-
-        if (!content) {
-            return { success: false, error: 'AI returned empty response' };
-        }
-
-        // Clean JSON
-        let cleanedContent = content.trim();
-        if (cleanedContent.startsWith('```json')) {
-            cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/```\s*$/, '');
-        } else if (cleanedContent.startsWith('```')) {
-            cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/```\s*$/, '');
-        }
-
-        const parsed: TransferRecognitionResult = JSON.parse(cleanedContent);
-
-        console.log('[recognizeTransfer] Successfully parsed transfer:', parsed);
-        return { success: true, data: parsed };
-
-    } catch (error: any) {
-        console.error('[recognizeTransfer] Error:', error);
-        return {
-            success: false,
-            error: error.message || 'Unknown error occurred'
-        };
+    if (!result.success) {
+        return { success: false, error: result.error };
     }
+
+    if (!result.data) {
+        return { success: false, error: 'AI returned empty response' };
+    }
+
+    console.log('[recognizeTransfer] Successfully parsed transfer:', result.data);
+    return { success: true, data: result.data };
 }

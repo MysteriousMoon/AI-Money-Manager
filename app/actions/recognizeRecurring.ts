@@ -1,6 +1,7 @@
 'use server';
 
 import { AppSettings } from '@/types';
+import { callAIAPI } from '@/lib/ai-api';
 
 interface RecurringRecognitionResult {
     name: string;
@@ -59,65 +60,24 @@ EXAMPLES:
 - Text: "Spotify premium 9.99 per month" -> { name: "Spotify", amount: 9.99, frequency: "MONTHLY", currency: "USD", ... }
 - Text: "房租 3000 每月" -> { name: "房租", amount: 3000, currency: "${defaultCurrency}", frequency: "MONTHLY", ... }`;
 
-    if (!apiKey) return { success: false, error: 'API Key is missing.' };
-    if (!apiBaseUrl) return { success: false, error: 'API Base URL is missing.' };
-    if (!model) return { success: false, error: 'Model is missing.' };
-
-    try {
-        let endpoint = apiBaseUrl;
-        if (!endpoint.endsWith('/chat/completions')) {
-            endpoint = endpoint.replace(/\/+$/, '') + '/chat/completions';
+    const result = await callAIAPI<RecurringRecognitionResult[]>(
+        settings,
+        SYSTEM_PROMPT,
+        images,
+        {
+            maxTokens: 10000,
+            jsonFormatPrompt: 'REQUIRED JSON FORMAT:\n[\n  {\n    "name": "string",\n    "amount": number,\n    "currency": "ISO_CODE",\n    "category": "string",\n    "frequency": "WEEKLY" | "MONTHLY" | "YEARLY",\n    "startDate": "YYYY-MM-DD"\n  }\n]\nReturn ONLY raw JSON array. No markdown.'
         }
+    );
 
-        const contentParts: any[] = [
-            {
-                type: 'text',
-                text: SYSTEM_PROMPT + '\n\nREQUIRED JSON FORMAT:\n[\n  {\n    "name": "string",\n    "amount": number,\n    "currency": "ISO_CODE",\n    "category": "string",\n    "frequency": "WEEKLY" | "MONTHLY" | "YEARLY",\n    "startDate": "YYYY-MM-DD"\n  }\n]\nReturn ONLY raw JSON array. No markdown.',
-            }
-        ];
-
-        images.forEach(img => {
-            contentParts.push({
-                type: 'image_url',
-                image_url: { url: img },
-            });
-        });
-
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-                model: model,
-                messages: [{ role: 'user', content: contentParts }],
-                max_tokens: 10000,
-            }),
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            return { success: false, error: `API Error: ${response.status} - ${errorText}` };
-        }
-
-        const result = await response.json();
-        const content = result.choices[0]?.message?.content;
-
-        if (!content) return { success: false, error: 'No content received from AI.' };
-
-        let parsedData: RecurringRecognitionResult[];
-        try {
-            const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
-            parsedData = JSON.parse(cleanContent);
-            if (!Array.isArray(parsedData)) parsedData = [parsedData];
-        } catch (e) {
-            return { success: false, error: 'Failed to parse AI response.' };
-        }
-
-        return { success: true, data: parsedData };
-
-    } catch (error: any) {
-        return { success: false, error: 'Recognition error: ' + (error.message || String(error)) };
+    if (!result.success || !result.data) {
+        return { success: false, error: result.error || 'No data returned' };
     }
+
+    let parsedData = result.data;
+    if (!Array.isArray(parsedData)) {
+        parsedData = [parsedData];
+    }
+
+    return { success: true, data: parsedData };
 }

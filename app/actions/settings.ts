@@ -2,64 +2,45 @@
 
 import { prisma } from '@/lib/db';
 import { AppSettings, DEFAULT_SETTINGS } from '@/types';
-import { getCurrentUser } from './auth';
+import { getCurrentUser, withAuth } from './auth';
 
 export async function getSettings() {
-    try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
-        }
-
+    return withAuth(async (userId) => {
         const settings = await prisma.settings.findUnique({
-            where: { userId: user.id },
+            where: { userId: userId },
         });
         if (!settings) {
             // Create default settings for this user
-            const newSettings = await prisma.settings.create({
+            return await prisma.settings.create({
                 data: {
                     ...DEFAULT_SETTINGS,
-                    userId: user.id,
+                    userId: userId,
                 }
             });
-            return { success: true, data: newSettings };
         }
-        return { success: true, data: settings };
-    } catch (error) {
-        console.error('Failed to fetch settings:', error);
-        return { success: false, error: 'Failed to fetch settings' };
-    }
+        return settings;
+    }, 'Failed to fetch settings');
 }
 
 export async function updateSettings(settings: Partial<AppSettings>) {
-    try {
-        const user = await getCurrentUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
-        }
-
+    return withAuth(async (userId) => {
         const existing = await prisma.settings.findUnique({
-            where: { userId: user.id },
+            where: { userId: userId },
         });
         if (existing) {
-            const updated = await prisma.settings.update({
-                where: { userId: user.id },
+            return await prisma.settings.update({
+                where: { userId: userId },
                 data: settings,
             });
-            return { success: true, data: updated };
         } else {
             // Create if not exists
-            const newSettings = await prisma.settings.create({
+            return await prisma.settings.create({
                 data: {
                     ...DEFAULT_SETTINGS,
                     ...settings,
-                    userId: user.id,
+                    userId: userId,
                 }
             });
-            return { success: true, data: newSettings };
         }
-    } catch (error) {
-        console.error('Failed to update settings:', error);
-        return { success: false, error: 'Failed to update settings' };
-    }
+    }, 'Failed to update settings');
 }

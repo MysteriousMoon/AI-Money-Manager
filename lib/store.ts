@@ -8,6 +8,16 @@ import { getRecurringRules, addRecurringRule, updateRecurringRule, deleteRecurri
 import { getInvestments } from '@/app/actions/investment';
 import { getAccounts, createAccount, updateAccount, deleteAccount, type AccountWithBalance } from '@/app/actions/account';
 
+// Helper to map raw transaction data to Transaction type with investment links
+function mapTransactions(rawTransactions: any[], investments: Investment[]): Transaction[] {
+    return rawTransactions.map((tx) => ({
+        ...tx,
+        note: tx.note ?? undefined,
+        merchant: tx.merchant ?? undefined,
+        investment: tx.investmentId ? investments.find((i) => i.id === tx.investmentId) : undefined
+    }));
+}
+
 interface AppState {
     transactions: Transaction[];
     categories: Category[];
@@ -70,12 +80,7 @@ export const useStore = create<AppState>((set, get) => ({
             const investments = invRes.success && invRes.data ? invRes.data : [];
 
             set({
-                transactions: txRes.success && txRes.data ? txRes.data.map((tx: any) => ({
-                    ...tx,
-                    note: tx.note ?? undefined,
-                    merchant: tx.merchant ?? undefined,
-                    investment: tx.investmentId ? investments.find((i: any) => i.id === tx.investmentId) : undefined
-                })) : [],
+                transactions: txRes.success && txRes.data ? mapTransactions(txRes.data, investments) : [],
                 categories: catRes.success && catRes.data ? catRes.data.map((c: any) => ({
                     ...c,
                     type: c.type as Category['type']
@@ -176,12 +181,7 @@ export const useStore = create<AppState>((set, get) => ({
 
             if (txRes.success && txRes.data) {
                 set({
-                    transactions: txRes.data.map((tx: any) => ({
-                        ...tx,
-                        note: tx.note ?? undefined,
-                        merchant: tx.merchant ?? undefined,
-                        investment: tx.investmentId ? currentInvestments.find((i: any) => i.id === tx.investmentId) : undefined
-                    }))
+                    transactions: mapTransactions(txRes.data, currentInvestments)
                 });
             }
         }
@@ -202,12 +202,7 @@ export const useStore = create<AppState>((set, get) => ({
 
             if (txRes.success && txRes.data) {
                 set({
-                    transactions: txRes.data.map((tx: any) => ({
-                        ...tx,
-                        note: tx.note ?? undefined,
-                        merchant: tx.merchant ?? undefined,
-                        investment: tx.investmentId ? currentInvestments.find((i: any) => i.id === tx.investmentId) : undefined
-                    }))
+                    transactions: mapTransactions(txRes.data, currentInvestments)
                 });
             }
         }
@@ -228,12 +223,7 @@ export const useStore = create<AppState>((set, get) => ({
 
             if (txRes.success && txRes.data) {
                 set({
-                    transactions: txRes.data.map((tx: any) => ({
-                        ...tx,
-                        note: tx.note ?? undefined,
-                        merchant: tx.merchant ?? undefined,
-                        investment: tx.investmentId ? currentInvestments.find((i: any) => i.id === tx.investmentId) : undefined
-                    }))
+                    transactions: mapTransactions(txRes.data, currentInvestments)
                 });
             }
         }
@@ -253,12 +243,7 @@ export const useStore = create<AppState>((set, get) => ({
 
             if (txRes.success && txRes.data) {
                 set({
-                    transactions: txRes.data.map((tx: any) => ({
-                        ...tx,
-                        note: tx.note ?? undefined,
-                        merchant: tx.merchant ?? undefined,
-                        investment: tx.investmentId ? currentInvestments.find((i: any) => i.id === tx.investmentId) : undefined
-                    }))
+                    transactions: mapTransactions(txRes.data, currentInvestments)
                 });
             }
         }
@@ -278,12 +263,7 @@ export const useStore = create<AppState>((set, get) => ({
 
             if (txRes.success && txRes.data) {
                 set({
-                    transactions: txRes.data.map((tx: any) => ({
-                        ...tx,
-                        note: tx.note ?? undefined,
-                        merchant: tx.merchant ?? undefined,
-                        investment: tx.investmentId ? currentInvestments.find((i: any) => i.id === tx.investmentId) : undefined
-                    }))
+                    transactions: mapTransactions(txRes.data, currentInvestments)
                 });
             }
         }

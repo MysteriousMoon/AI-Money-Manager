@@ -6,9 +6,11 @@ import { Plus, Trash2, Edit2, Check, X, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Category } from '@/types';
 import { useTranslation } from '@/lib/i18n';
+import { filterSystemCategories } from '@/lib/category-utils';
 
 export default function CategoriesPage() {
     const { categories, addCategory, updateCategory, deleteCategory } = useStore();
+    const userCategories = filterSystemCategories(categories); // Filter out system categories
     const { t } = useTranslation();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -129,7 +131,7 @@ export default function CategoriesPage() {
             )}
 
             <div className="space-y-2">
-                {categories.map((category) => {
+                {userCategories.map((category) => {
                     const isEditing = editingId === category.id;
 
                     return (

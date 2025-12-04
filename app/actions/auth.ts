@@ -30,6 +30,23 @@ export async function getCurrentUser() {
     }
 }
 
+export async function withAuth<T>(
+    handler: (userId: string) => Promise<T>,
+    errorMessage: string = 'Action failed'
+): Promise<{ success: boolean; data?: T; error?: string }> {
+    try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+        const data = await handler(user.id);
+        return { success: true, data };
+    } catch (error: any) {
+        console.error(errorMessage, error);
+        return { success: false, error: errorMessage };
+    }
+}
+
 export async function login(formData: FormData) {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;

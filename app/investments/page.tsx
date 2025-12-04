@@ -9,6 +9,8 @@ import { Investment } from '@prisma/client';
 import { CURRENCIES } from '@/lib/currency';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { calculateDepreciation } from '@/lib/depreciation';
+import { useCurrencyTotal } from '@/hooks/useCurrencyTotal';
+import { useEffect } from 'react';
 
 export default function InvestmentsPage() {
     const { t } = useTranslation();
@@ -33,6 +35,16 @@ export default function InvestmentsPage() {
     const [usefulLife, setUsefulLife] = useState('');
     const [salvageValue, setSalvageValue] = useState('');
     const [depreciationType, setDepreciationType] = useState<'STRAIGHT_LINE' | 'DECLINING_BALANCE'>('STRAIGHT_LINE');
+
+    // Effect to lock currency to selected account
+    useEffect(() => {
+        if (accountId) {
+            const account = accounts.find(a => a.id === accountId);
+            if (account) {
+                setCurrencyCode(account.currencyCode);
+            }
+        }
+    }, [accountId, accounts]);
 
     // Action States
     const [redeemId, setRedeemId] = useState<string | null>(null);
@@ -262,8 +274,21 @@ export default function InvestmentsPage() {
         return { value: investment.initialAmount, profit: 0, percent: 0 };
     };
 
-    const totalValue = investments.filter(i => i.status === 'ACTIVE').reduce((sum, inv) => sum + calculateReturn(inv).value, 0);
-    const totalCost = investments.filter(i => i.status === 'ACTIVE').reduce((sum, inv) => sum + inv.initialAmount, 0);
+    const activeInvestments = investments.filter(i => i.status === 'ACTIVE');
+
+    // Convert all investments to currency items with proper conversion
+    const investmentItems = activeInvestments.map(inv => ({
+        amount: calculateReturn(inv).value,
+        currencyCode: inv.currencyCode
+    }));
+
+    const initialCostItems = activeInvestments.map(inv => ({
+        amount: inv.initialAmount,
+        currencyCode: inv.currencyCode
+    }));
+
+    const { total: totalValue } = useCurrencyTotal(investmentItems, settings);
+    const { total: totalCost } = useCurrencyTotal(initialCostItems, settings);
     const totalProfit = totalValue - totalCost;
 
     if (isLoading) {
@@ -295,7 +320,7 @@ export default function InvestmentsPage() {
                 <div className="p-4 rounded-lg border bg-card text-card-foreground shadow-sm">
                     <div className="text-sm font-medium text-muted-foreground">{t('investments.total_profit')}</div>
                     <div className={cn("text-2xl font-bold mt-1", totalProfit >= 0 ? "text-green-500" : "text-red-500")}>
-                        {totalProfit >= 0 ? '+' : ''}{totalProfit.toFixed(2)}
+                        {totalProfit >= 0 ? '+' : ''}{settings.currency} {totalProfit.toFixed(2)}
                     </div>
                 </div>
             </div>
@@ -364,15 +389,9 @@ export default function InvestmentsPage() {
                                         <div>
                                             <label className="text-xs font-medium text-muted-foreground">{t('investments.purchase_price')}</label>
                                             <div className="flex gap-2">
-                                                <select
-                                                    value={currencyCode}
-                                                    onChange={(e) => setCurrencyCode(e.target.value)}
-                                                    className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
-                                                >
-                                                    {CURRENCIES.map((c) => (
-                                                        <option key={c.code} value={c.code}>{c.code}</option>
-                                                    ))}
-                                                </select>
+                                                <div className="w-20 flex items-center justify-center rounded-md border border-input bg-muted px-2 py-1 text-sm opacity-70 cursor-not-allowed font-medium">
+                                                    {currencyCode}
+                                                </div>
                                                 <input
                                                     required
                                                     type="number"
@@ -416,8 +435,8 @@ export default function InvestmentsPage() {
                                                 onChange={(e) => setDepreciationType(e.target.value as any)}
                                                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                             >
-                                                <option value="STRAIGHT_LINE">直线法</option>
-                                                <option value="DECLINING_BALANCE">余额递减法</option>
+                                                <option value="STRAIGHT_LINE">{t('investments.straight_line')}</option>
+                                                <option value="DECLINING_BALANCE">{t('investments.declining_balance')}</option>
                                             </select>
                                         </div>
                                     </div>
@@ -427,15 +446,9 @@ export default function InvestmentsPage() {
                                     <div>
                                         <label className="text-xs font-medium text-muted-foreground">{t('investments.amount')}</label>
                                         <div className="flex gap-2">
-                                            <select
-                                                value={currencyCode}
-                                                onChange={(e) => setCurrencyCode(e.target.value)}
-                                                className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
-                                            >
-                                                {CURRENCIES.map((c) => (
-                                                    <option key={c.code} value={c.code}>{c.code}</option>
-                                                ))}
-                                            </select>
+                                            <div className="w-20 flex items-center justify-center rounded-md border border-input bg-muted px-2 py-1 text-sm opacity-70 cursor-not-allowed font-medium">
+                                                {currencyCode}
+                                            </div>
                                             <input
                                                 required
                                                 type="number"
