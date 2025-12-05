@@ -90,9 +90,10 @@ export async function getProjectById(id: string) {
     }, 'Failed to fetch project');
 }
 
-// Get project statistics and P&L analysis
+// Get project statistics and P&L analysis with currency conversion
 export async function getProjectStats(id: string) {
     return withAuth(async (userId) => {
+        // Fetch project with transactions and investments
         const project = await prisma.project.findUnique({
             where: { id },
             include: {
@@ -105,23 +106,41 @@ export async function getProjectStats(id: string) {
             throw new Error('Project not found or unauthorized');
         }
 
-        // Calculate basic stats
-        const expenses = project.transactions
-            .filter(t => t.type === 'EXPENSE')
-            .reduce((sum, t) => sum + t.amount, 0);
+        // Fetch user settings for base currency and exchange rate API key
+        const userSettings = await prisma.settings.findUnique({
+            where: { userId }
+        });
 
-        const income = project.transactions
-            .filter(t => t.type === 'INCOME')
-            .reduce((sum, t) => sum + t.amount, 0);
+        const baseCurrency = userSettings?.currency || 'CNY';
+        const exchangeRateApiKey = userSettings?.exchangeRateApiKey || undefined;
 
-        const transfers = project.transactions
-            .filter(t => t.type === 'TRANSFER')
-            .reduce((sum, t) => sum + t.amount, 0);
+        // Import server currency conversion
+        const { convertAmount } = await import('@/lib/server-currency');
 
-        // Calculate depreciation from linked assets
-        const depreciation = project.investments
-            .filter(i => i.type === 'ASSET' && i.purchasePrice && i.currentAmount)
-            .reduce((sum, i) => sum + ((i.purchasePrice || 0) - (i.currentAmount || 0)), 0);
+        // Calculate expenses with currency conversion
+        let expenses = 0;
+        for (const t of project.transactions.filter(t => t.type === 'EXPENSE')) {
+            expenses += await convertAmount(t.amount, t.currencyCode, baseCurrency, exchangeRateApiKey);
+        }
+
+        // Calculate income with currency conversion
+        let income = 0;
+        for (const t of project.transactions.filter(t => t.type === 'INCOME')) {
+            income += await convertAmount(t.amount, t.currencyCode, baseCurrency, exchangeRateApiKey);
+        }
+
+        // Calculate transfers (usually same currency, but convert anyway)
+        let transfers = 0;
+        for (const t of project.transactions.filter(t => t.type === 'TRANSFER')) {
+            transfers += await convertAmount(t.amount, t.currencyCode, baseCurrency, exchangeRateApiKey);
+        }
+
+        // Calculate depreciation from linked assets with currency conversion
+        let depreciation = 0;
+        for (const i of project.investments.filter(i => i.type === 'ASSET' && i.purchasePrice && i.currentAmount)) {
+            const depreciationAmount = (i.purchasePrice || 0) - (i.currentAmount || 0);
+            depreciation += await convertAmount(depreciationAmount, i.currencyCode, baseCurrency, exchangeRateApiKey);
+        }
 
         const netResult = income - expenses - depreciation;
 
@@ -136,7 +155,7 @@ export async function getProjectStats(id: string) {
             amortizedDailyCost = expenses / projectDays;
         }
 
-        // Calculate ROI for SIDE_HUSTLE
+        // Calculate ROI for SIDE_HUSTLE/JOB
         let roi = null;
         if (project.type === 'SIDE_HUSTLE' || project.type === 'JOB') {
             const totalCost = expenses + depreciation;
@@ -145,7 +164,7 @@ export async function getProjectStats(id: string) {
             }
         }
 
-        // Budget utilization
+        // Budget utilization (budget is assumed to be in base currency)
         const budgetUtilization = project.totalBudget
             ? (expenses / project.totalBudget) * 100
             : null;
@@ -153,8 +172,9 @@ export async function getProjectStats(id: string) {
         return {
             projectId: id,
             projectType: project.type,
+            baseCurrency, // Include base currency in response
 
-            // Totals
+            // Totals (all converted to base currency)
             totalExpenses: expenses,
             totalIncome: income,
             totalTransfers: transfers,

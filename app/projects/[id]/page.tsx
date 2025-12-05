@@ -28,6 +28,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 interface ProjectStats {
     projectId: string;
     projectType: string;
+    baseCurrency: string; // Currency all amounts are converted to
     totalExpenses: number;
     totalIncome: number;
     totalTransfers: number;
@@ -186,8 +187,8 @@ export default function ProjectDetailPage() {
                             {t('projects.budget_progress')}
                         </span>
                         <span className="text-sm">
-                            <span className="font-mono font-bold">{formatCurrency(stats.totalExpenses, settings.currency)}</span>
-                            <span className="text-muted-foreground"> / {formatCurrency(stats.budget, settings.currency)}</span>
+                            <span className="font-mono font-bold">{formatCurrency(stats.totalExpenses, stats?.baseCurrency || settings.currency)}</span>
+                            <span className="text-muted-foreground"> / {formatCurrency(stats.budget, stats?.baseCurrency || settings.currency)}</span>
                         </span>
                     </div>
                     <div className="h-3 bg-muted rounded-full overflow-hidden">
@@ -202,7 +203,7 @@ export default function ProjectDetailPage() {
                     </div>
                     <div className="flex justify-between text-xs text-muted-foreground mt-1">
                         <span>{(stats.budgetUtilization || 0).toFixed(1)}% {t('projects.used')}</span>
-                        <span>{formatCurrency(stats.budgetRemaining || 0, settings.currency)} {t('projects.remaining')}</span>
+                        <span>{formatCurrency(stats.budgetRemaining || 0, stats?.baseCurrency || settings.currency)} {t('projects.remaining')}</span>
                     </div>
                 </div>
             )}
@@ -215,7 +216,7 @@ export default function ProjectDetailPage() {
                         <span className="text-xs font-medium">{t('projects.total_expenses')}</span>
                     </div>
                     <p className="text-xl font-bold text-rose-500">
-                        {formatCurrency(stats?.totalExpenses || 0, settings.currency)}
+                        {formatCurrency(stats?.totalExpenses || 0, stats?.baseCurrency || settings.currency)}
                     </p>
                 </div>
 
@@ -225,7 +226,7 @@ export default function ProjectDetailPage() {
                         <span className="text-xs font-medium">{t('projects.total_income')}</span>
                     </div>
                     <p className="text-xl font-bold text-emerald-500">
-                        {formatCurrency(stats?.totalIncome || 0, settings.currency)}
+                        {formatCurrency(stats?.totalIncome || 0, stats?.baseCurrency || settings.currency)}
                     </p>
                 </div>
 
@@ -235,7 +236,7 @@ export default function ProjectDetailPage() {
                         <span className="text-xs font-medium">{t('projects.net_result')}</span>
                     </div>
                     <p className={cn("text-xl font-bold", (stats?.netResult || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
-                        {formatCurrency(stats?.netResult || 0, settings.currency)}
+                        {formatCurrency(stats?.netResult || 0, stats?.baseCurrency || settings.currency)}
                     </p>
                 </div>
 
@@ -266,13 +267,13 @@ export default function ProjectDetailPage() {
                         </div>
                         <div>
                             <p className="text-2xl font-bold">
-                                {formatCurrency(stats.totalExpenses, settings.currency)}
+                                {formatCurrency(stats.totalExpenses, stats?.baseCurrency || settings.currency)}
                             </p>
                             <p className="text-xs text-muted-foreground">{t('projects.total_cost')}</p>
                         </div>
                         <div>
                             <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                                {formatCurrency(stats.amortizedDailyCost || 0, settings.currency)}
+                                {formatCurrency(stats.amortizedDailyCost || 0, stats?.baseCurrency || settings.currency)}
                             </p>
                             <p className="text-xs text-muted-foreground">{t('projects.daily_cost')}</p>
                         </div>
@@ -290,22 +291,22 @@ export default function ProjectDetailPage() {
                     <div className="space-y-2">
                         <div className="flex justify-between">
                             <span className="text-muted-foreground">{t('projects.revenue')}</span>
-                            <span className="font-mono text-emerald-500">+{formatCurrency(stats.totalIncome, settings.currency)}</span>
+                            <span className="font-mono text-emerald-500">+{formatCurrency(stats.totalIncome, stats?.baseCurrency || settings.currency)}</span>
                         </div>
                         <div className="flex justify-between">
                             <span className="text-muted-foreground">{t('projects.direct_costs')}</span>
-                            <span className="font-mono text-rose-500">-{formatCurrency(stats.totalExpenses, settings.currency)}</span>
+                            <span className="font-mono text-rose-500">-{formatCurrency(stats.totalExpenses, stats?.baseCurrency || settings.currency)}</span>
                         </div>
                         {stats.totalDepreciation > 0 && (
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">{t('projects.depreciation')}</span>
-                                <span className="font-mono text-purple-500">-{formatCurrency(stats.totalDepreciation, settings.currency)}</span>
+                                <span className="font-mono text-purple-500">-{formatCurrency(stats.totalDepreciation, stats?.baseCurrency || settings.currency)}</span>
                             </div>
                         )}
                         <div className="border-t pt-2 flex justify-between font-bold">
                             <span>{t('projects.net_profit')}</span>
                             <span className={cn("font-mono", stats.netResult >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
-                                {stats.netResult >= 0 ? '+' : ''}{formatCurrency(stats.netResult, settings.currency)}
+                                {stats.netResult >= 0 ? '+' : ''}{formatCurrency(stats.netResult, stats?.baseCurrency || settings.currency)}
                             </span>
                         </div>
                         {stats.roi !== null && (
