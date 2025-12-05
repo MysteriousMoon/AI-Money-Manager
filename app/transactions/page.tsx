@@ -345,6 +345,19 @@ export default function TransactionsPage() {
                                                         />
                                                     </div>
                                                     <div className="col-span-2">
+                                                        <label className="text-xs font-medium text-muted-foreground">{t('add.project') || '项目'}</label>
+                                                        <select
+                                                            value={editForm.projectId || ''}
+                                                            onChange={(e) => setEditForm({ ...editForm, projectId: e.target.value || undefined })}
+                                                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                                        >
+                                                            <option value="">{t('add.no_project') || '无项目'}</option>
+                                                            {projects.map(p => (
+                                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    <div className="col-span-2">
                                                         <label className="text-xs font-medium text-muted-foreground">{t('add.amount')}</label>
                                                         <input
                                                             type="number"
@@ -527,6 +540,19 @@ export default function TransactionsPage() {
                                                                     />
                                                                 </div>
                                                                 <div className="col-span-2">
+                                                                    <label className="text-xs text-muted-foreground">{t('add.project') || '项目'}</label>
+                                                                    <select
+                                                                        value={editForm.projectId || ''}
+                                                                        onChange={(e) => setEditForm({ ...editForm, projectId: e.target.value || undefined })}
+                                                                        className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                                    >
+                                                                        <option value="">{t('add.no_project') || '无项目'}</option>
+                                                                        {projects.map(p => (
+                                                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
+                                                                <div className="col-span-2">
                                                                     <label className="text-xs text-muted-foreground">{t('add.amount')}</label>
                                                                     <input
                                                                         type="number"
@@ -647,6 +673,19 @@ export default function TransactionsPage() {
                                                                 onChange={(e) => setEditForm({ ...editForm, note: e.target.value })}
                                                                 className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
                                                             />
+                                                        </div>
+                                                        <div className="col-span-2">
+                                                            <label className="text-xs text-muted-foreground">{t('add.project') || '项目'}</label>
+                                                            <select
+                                                                value={editForm.projectId || ''}
+                                                                onChange={(e) => setEditForm({ ...editForm, projectId: e.target.value || undefined })}
+                                                                className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                            >
+                                                                <option value="">{t('add.no_project') || '无项目'}</option>
+                                                                {projects.map(p => (
+                                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                                ))}
+                                                            </select>
                                                         </div>
                                                         <div className="col-span-2">
                                                             <label className="text-xs text-muted-foreground">{t('add.amount')}</label>
