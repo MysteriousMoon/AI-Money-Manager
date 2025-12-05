@@ -14,7 +14,7 @@ export function ProjectList() {
 
     const activeProjects = useMemo(() => {
         return projects
-            .filter(p => p.status === 'IN_PROGRESS' || p.status === 'PLANNED')
+            .filter(p => p.status === 'ACTIVE' || p.status === 'PLANNED')
             .slice(0, 3);
     }, [projects]);
 

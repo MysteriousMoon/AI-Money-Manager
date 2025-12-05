@@ -42,6 +42,7 @@ export default function TransactionsPage() {
         setEditForm({
             amount: transaction.amount,
             categoryId: transaction.categoryId,
+            accountId: transaction.accountId,
             date: transaction.date,
             merchant: transaction.merchant,
             note: transaction.note,
@@ -231,26 +232,42 @@ export default function TransactionsPage() {
                                                                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                                             />
                                                         </div>
-                                                        {/* Project Selection */}
-                                                        {projects.length > 0 && (
+                                                        {/* Account Selection */}
+                                                        <div className="grid grid-cols-2 gap-3">
                                                             <div>
-                                                                <label className="text-xs font-medium text-muted-foreground">{t('add.project')}</label>
+                                                                <label className="text-xs font-medium text-muted-foreground">{t('add.account')}</label>
                                                                 <select
-                                                                    value={editForm.projectId || ''}
-                                                                    onChange={(e) => setEditForm({ ...editForm, projectId: e.target.value || undefined })}
+                                                                    value={editForm.accountId || ''}
+                                                                    onChange={(e) => setEditForm({ ...editForm, accountId: e.target.value || undefined })}
                                                                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                                                 >
-                                                                    <option value="">{t('add.no_project')}</option>
-                                                                    {projects
-                                                                        .filter(p => p.status === 'ACTIVE')
-                                                                        .map((p) => (
-                                                                            <option key={p.id} value={p.id}>
-                                                                                {p.type === 'TRIP' ? '✈️' : p.type === 'JOB' ? '💼' : p.type === 'SIDE_HUSTLE' ? '✨' : '📅'} {p.name}
-                                                                            </option>
-                                                                        ))}
+                                                                    <option value="">{t('add.select_account')}</option>
+                                                                    {accounts.map((a) => (
+                                                                        <option key={a.id} value={a.id}>{a.name}</option>
+                                                                    ))}
                                                                 </select>
                                                             </div>
-                                                        )}
+                                                            {/* Project Selection */}
+                                                            {projects.length > 0 && (
+                                                                <div>
+                                                                    <label className="text-xs font-medium text-muted-foreground">{t('add.project')}</label>
+                                                                    <select
+                                                                        value={editForm.projectId || ''}
+                                                                        onChange={(e) => setEditForm({ ...editForm, projectId: e.target.value || undefined })}
+                                                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                                                    >
+                                                                        <option value="">{t('add.no_project')}</option>
+                                                                        {projects
+                                                                            .filter(p => p.status === 'ACTIVE')
+                                                                            .map((p) => (
+                                                                                <option key={p.id} value={p.id}>
+                                                                                    {p.type === 'TRIP' ? '✈️' : p.type === 'JOB' ? '💼' : p.type === 'SIDE_HUSTLE' ? '✨' : '📅'} {p.name}
+                                                                                </option>
+                                                                            ))}
+                                                                    </select>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                         <div className="flex justify-end gap-2">
                                                             <button
                                                                 onClick={() => setInlineEditingId(null)}

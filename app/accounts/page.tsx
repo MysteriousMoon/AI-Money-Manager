@@ -25,14 +25,6 @@ export default function AccountsPage() {
     const { accounts, settings, addAccount, updateAccount, deleteAccount, refreshAccounts, isLoading } = useStore();
     const { t } = useTranslation();
 
-    if (isLoading) {
-        return (
-            <div className="flex h-screen items-center justify-center">
-                <LoadingSpinner size={48} />
-            </div>
-        );
-    }
-
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -43,6 +35,7 @@ export default function AccountsPage() {
     const [currencyCode, setCurrencyCode] = useState(settings.currency);
     const [icon, setIcon] = useState('🏦');
     const [color, setColor] = useState('#3B82F6');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const resetForm = () => {
         setName('');
@@ -54,8 +47,6 @@ export default function AccountsPage() {
         setIsAdding(false);
         setEditingId(null);
     };
-
-    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -105,6 +96,14 @@ export default function AccountsPage() {
             await refreshAccounts();
         }
     };
+
+    if (isLoading) {
+        return (
+            <div className="flex h-screen items-center justify-center">
+                <LoadingSpinner size={48} />
+            </div>
+        );
+    }
 
     return (
         <ContentContainer>

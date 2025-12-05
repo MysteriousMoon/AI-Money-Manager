@@ -470,6 +470,17 @@ export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual', in
                             />
                         </div>
 
+                        <div className="col-span-2">
+                            <label className="text-sm font-medium mb-1.5 block">{t('add.note')}</label>
+                            <input
+                                type="text"
+                                value={note}
+                                onChange={(e) => setNote(e.target.value)}
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                placeholder={t('add.optional_desc')}
+                            />
+                        </div>
+
                         {/* Project Selection */}
                         {projects.length > 0 && (
                             <div className="col-span-2">
