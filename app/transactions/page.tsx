@@ -464,141 +464,274 @@ export default function TransactionsPage() {
                                 <SortButton field="amount" label={t('add.amount') || 'Amount'} currentSortField={sortField} currentSortDirection={sortDirection} onSort={handleSort} />
                             </div>
 
-                            {sortedDates.slice(0, visibleDates).map((date) => (
-                                <div key={date}>
-                                    <h2 className="text-xs font-medium text-muted-foreground sticky top-0 bg-background/95 py-2 px-1 z-10 backdrop-blur-sm">
-                                        {(() => {
-                                            try {
-                                                const [year, month, day] = date.split('-').map(Number);
-                                                const localDate = new Date(year, month - 1, day);
-                                                return format(localDate, t('transactions.date_format') === 'yyyy年M月d日' ? 'M月d日' : 'MMM d', {
-                                                    locale: t('transactions.date_format') === 'yyyy年M月d日' ? zhCN : enUS
-                                                });
-                                            } catch {
-                                                return date;
-                                            }
-                                        })()}
-                                    </h2>
-                                    <div className="divide-y divide-border">
-                                        {groupedTransactions[date].map((transaction) => {
-                                            if (inlineEditingId === transaction.id) {
-                                                return (
-                                                    <div key={transaction.id} className="p-3 bg-muted/30 space-y-3">
-                                                        <div className="grid grid-cols-2 gap-2">
-                                                            <div>
-                                                                <label className="text-xs text-muted-foreground">{t('add.date')}</label>
-                                                                <input
-                                                                    type="date"
-                                                                    value={editForm.date || ''}
-                                                                    onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                                                                    className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-                                                                />
+                            {/* 当按日期排序时，使用日期分组视图 */}
+                            {sortField === 'date' ? (
+                                sortedDates.slice(0, visibleDates).map((date) => (
+                                    <div key={date}>
+                                        <h2 className="text-xs font-medium text-muted-foreground sticky top-0 bg-background/95 py-2 px-1 z-10 backdrop-blur-sm">
+                                            {(() => {
+                                                try {
+                                                    const [year, month, day] = date.split('-').map(Number);
+                                                    const localDate = new Date(year, month - 1, day);
+                                                    return format(localDate, t('transactions.date_format') === 'yyyy年M月d日' ? 'M月d日' : 'MMM d', {
+                                                        locale: t('transactions.date_format') === 'yyyy年M月d日' ? zhCN : enUS
+                                                    });
+                                                } catch {
+                                                    return date;
+                                                }
+                                            })()}
+                                        </h2>
+                                        <div className="divide-y divide-border">
+                                            {groupedTransactions[date].map((transaction) => {
+                                                if (inlineEditingId === transaction.id) {
+                                                    return (
+                                                        <div key={transaction.id} className="p-3 bg-muted/30 space-y-3">
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <div>
+                                                                    <label className="text-xs text-muted-foreground">{t('add.date')}</label>
+                                                                    <input
+                                                                        type="date"
+                                                                        value={editForm.date || ''}
+                                                                        onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                                                                        className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-xs text-muted-foreground">{t('add.category')}</label>
+                                                                    <select
+                                                                        value={editForm.categoryId || ''}
+                                                                        onChange={(e) => setEditForm({ ...editForm, categoryId: e.target.value })}
+                                                                        className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                                    >
+                                                                        {categories.filter(c => c.type === (editForm.type || transaction.type)).map(c => (
+                                                                            <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-xs text-muted-foreground">{t('add.merchant')}</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={editForm.merchant || ''}
+                                                                        onChange={(e) => setEditForm({ ...editForm, merchant: e.target.value })}
+                                                                        className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-xs text-muted-foreground">{t('add.note')}</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={editForm.note || ''}
+                                                                        onChange={(e) => setEditForm({ ...editForm, note: e.target.value })}
+                                                                        className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                                    />
+                                                                </div>
+                                                                <div className="col-span-2">
+                                                                    <label className="text-xs text-muted-foreground">{t('add.amount')}</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        value={editForm.amount || ''}
+                                                                        onChange={(e) => setEditForm({ ...editForm, amount: parseFloat(e.target.value) })}
+                                                                        className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                                    />
+                                                                </div>
                                                             </div>
-                                                            <div>
-                                                                <label className="text-xs text-muted-foreground">{t('add.category')}</label>
-                                                                <select
-                                                                    value={editForm.categoryId || ''}
-                                                                    onChange={(e) => setEditForm({ ...editForm, categoryId: e.target.value })}
-                                                                    className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-                                                                >
-                                                                    {categories.filter(c => c.type === (editForm.type || transaction.type)).map(c => (
-                                                                        <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-                                                                    ))}
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-xs text-muted-foreground">{t('add.merchant')}</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={editForm.merchant || ''}
-                                                                    onChange={(e) => setEditForm({ ...editForm, merchant: e.target.value })}
-                                                                    className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-xs text-muted-foreground">{t('add.note')}</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={editForm.note || ''}
-                                                                    onChange={(e) => setEditForm({ ...editForm, note: e.target.value })}
-                                                                    className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-                                                                />
-                                                            </div>
-                                                            <div className="col-span-2">
-                                                                <label className="text-xs text-muted-foreground">{t('add.amount')}</label>
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    value={editForm.amount || ''}
-                                                                    onChange={(e) => setEditForm({ ...editForm, amount: parseFloat(e.target.value) })}
-                                                                    className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-                                                                />
+                                                            <div className="flex gap-2">
+                                                                <button onClick={() => setInlineEditingId(null)} className="flex-1 h-8 text-xs border rounded-md">
+                                                                    {t('transactions.cancel_edit')}
+                                                                </button>
+                                                                <button onClick={handleInlineUpdate} className="flex-1 h-8 text-xs bg-primary text-primary-foreground rounded-md">
+                                                                    {t('transactions.update')}
+                                                                </button>
                                                             </div>
                                                         </div>
-                                                        <div className="flex gap-2">
-                                                            <button onClick={() => setInlineEditingId(null)} className="flex-1 h-8 text-xs border rounded-md">
-                                                                {t('transactions.cancel_edit')}
+                                                    );
+                                                }
+                                                return (
+                                                    <div
+                                                        key={transaction.id}
+                                                        className="flex items-center justify-between py-2.5 px-1"
+                                                    >
+                                                        <div className="flex items-center gap-2.5 min-w-0">
+                                                            <span className="text-lg shrink-0">{getCategoryIcon(transaction.categoryId)}</span>
+                                                            <div className="min-w-0">
+                                                                <div className="text-sm font-medium truncate">
+                                                                    {transaction.merchant || getCategoryName(transaction.categoryId)}
+                                                                </div>
+                                                                {transaction.note && (
+                                                                    <div className="text-xs text-muted-foreground truncate">{transaction.note}</div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 shrink-0">
+                                                            <span className={cn(
+                                                                "text-sm font-mono font-medium",
+                                                                transaction.type === 'EXPENSE' ? "text-red-500" : "text-green-500"
+                                                            )}>
+                                                                {transaction.type === 'EXPENSE' ? '-' : '+'}
+                                                                {CURRENCIES.find(c => c.code === (transaction.currencyCode || 'CNY'))?.symbol}
+                                                                {transaction.amount.toFixed(2)}
+                                                            </span>
+                                                            <button
+                                                                onClick={() => handleInlineEdit(transaction)}
+                                                                className="p-1.5 text-muted-foreground"
+                                                            >
+                                                                <Edit2 className="h-3.5 w-3.5" />
                                                             </button>
-                                                            <button onClick={handleInlineUpdate} className="flex-1 h-8 text-xs bg-primary text-primary-foreground rounded-md">
-                                                                {t('transactions.update')}
+                                                            {transaction.type === 'EXPENSE' && !transaction.note?.includes('[SPLIT]') && (
+                                                                <button
+                                                                    onClick={() => setSplitId(transaction.id)}
+                                                                    className="p-1.5 text-muted-foreground"
+                                                                    title={t('transactions.split')}
+                                                                >
+                                                                    <Scissors className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={() => handleDeleteClick(transaction.id)}
+                                                                className="p-1.5 text-muted-foreground hover:text-destructive"
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
                                                             </button>
                                                         </div>
                                                     </div>
                                                 );
-                                            }
+                                            })}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                /* 当按其他字段排序时，使用平铺列表视图 */
+                                <div className="divide-y divide-border">
+                                    {sortedTransactions.slice(0, visibleTransactions).map((transaction) => {
+                                        if (inlineEditingId === transaction.id) {
                                             return (
-                                                <div
-                                                    key={transaction.id}
-                                                    className="flex items-center justify-between py-2.5 px-1"
-                                                >
-                                                    <div className="flex items-center gap-2.5 min-w-0">
-                                                        <span className="text-lg shrink-0">{getCategoryIcon(transaction.categoryId)}</span>
-                                                        <div className="min-w-0">
-                                                            <div className="text-sm font-medium truncate">
-                                                                {transaction.merchant || getCategoryName(transaction.categoryId)}
-                                                            </div>
-                                                            {transaction.note && (
-                                                                <div className="text-xs text-muted-foreground truncate">{transaction.note}</div>
-                                                            )}
+                                                <div key={transaction.id} className="p-3 bg-muted/30 space-y-3">
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div>
+                                                            <label className="text-xs text-muted-foreground">{t('add.date')}</label>
+                                                            <input
+                                                                type="date"
+                                                                value={editForm.date || ''}
+                                                                onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                                                                className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs text-muted-foreground">{t('add.category')}</label>
+                                                            <select
+                                                                value={editForm.categoryId || ''}
+                                                                onChange={(e) => setEditForm({ ...editForm, categoryId: e.target.value })}
+                                                                className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                            >
+                                                                {categories.filter(c => c.type === (editForm.type || transaction.type)).map(c => (
+                                                                    <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs text-muted-foreground">{t('add.merchant')}</label>
+                                                            <input
+                                                                type="text"
+                                                                value={editForm.merchant || ''}
+                                                                onChange={(e) => setEditForm({ ...editForm, merchant: e.target.value })}
+                                                                className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs text-muted-foreground">{t('add.note')}</label>
+                                                            <input
+                                                                type="text"
+                                                                value={editForm.note || ''}
+                                                                onChange={(e) => setEditForm({ ...editForm, note: e.target.value })}
+                                                                className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                            />
+                                                        </div>
+                                                        <div className="col-span-2">
+                                                            <label className="text-xs text-muted-foreground">{t('add.amount')}</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                value={editForm.amount || ''}
+                                                                onChange={(e) => setEditForm({ ...editForm, amount: parseFloat(e.target.value) })}
+                                                                className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                            />
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-1 shrink-0">
-                                                        <span className={cn(
-                                                            "text-sm font-mono font-medium",
-                                                            transaction.type === 'EXPENSE' ? "text-red-500" : "text-green-500"
-                                                        )}>
-                                                            {transaction.type === 'EXPENSE' ? '-' : '+'}
-                                                            {CURRENCIES.find(c => c.code === (transaction.currencyCode || 'CNY'))?.symbol}
-                                                            {transaction.amount.toFixed(2)}
-                                                        </span>
-                                                        <button
-                                                            onClick={() => handleInlineEdit(transaction)}
-                                                            className="p-1.5 text-muted-foreground"
-                                                        >
-                                                            <Edit2 className="h-3.5 w-3.5" />
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => setInlineEditingId(null)} className="flex-1 h-8 text-xs border rounded-md">
+                                                            {t('transactions.cancel_edit')}
                                                         </button>
-                                                        {transaction.type === 'EXPENSE' && !transaction.note?.includes('[SPLIT]') && (
-                                                            <button
-                                                                onClick={() => setSplitId(transaction.id)}
-                                                                className="p-1.5 text-muted-foreground"
-                                                                title={t('transactions.split')}
-                                                            >
-                                                                <Scissors className="h-3.5 w-3.5" />
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => handleDeleteClick(transaction.id)}
-                                                            className="p-1.5 text-muted-foreground hover:text-destructive"
-                                                        >
-                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        <button onClick={handleInlineUpdate} className="flex-1 h-8 text-xs bg-primary text-primary-foreground rounded-md">
+                                                            {t('transactions.update')}
                                                         </button>
                                                     </div>
                                                 </div>
                                             );
-                                        })}
-                                    </div>
+                                        }
+                                        return (
+                                            <div
+                                                key={transaction.id}
+                                                className="flex items-center justify-between py-2.5 px-1"
+                                            >
+                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                    <span className="text-lg shrink-0">{getCategoryIcon(transaction.categoryId)}</span>
+                                                    <div className="min-w-0">
+                                                        <div className="text-sm font-medium truncate">
+                                                            {transaction.merchant || getCategoryName(transaction.categoryId)}
+                                                        </div>
+                                                        {/* 非日期排序时，显示日期作为副信息 */}
+                                                        <div className="text-xs text-muted-foreground truncate">
+                                                            {(() => {
+                                                                try {
+                                                                    const [year, month, day] = transaction.date.split('-').map(Number);
+                                                                    const localDate = new Date(year, month - 1, day);
+                                                                    return format(localDate, 'MM-dd', { locale: t('transactions.date_format') === 'yyyy年M月d日' ? zhCN : enUS });
+                                                                } catch {
+                                                                    return transaction.date;
+                                                                }
+                                                            })()}
+                                                            {transaction.note && ` · ${transaction.note}`}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1 shrink-0">
+                                                    <span className={cn(
+                                                        "text-sm font-mono font-medium",
+                                                        transaction.type === 'EXPENSE' ? "text-red-500" : "text-green-500"
+                                                    )}>
+                                                        {transaction.type === 'EXPENSE' ? '-' : '+'}
+                                                        {CURRENCIES.find(c => c.code === (transaction.currencyCode || 'CNY'))?.symbol}
+                                                        {transaction.amount.toFixed(2)}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => handleInlineEdit(transaction)}
+                                                        className="p-1.5 text-muted-foreground"
+                                                    >
+                                                        <Edit2 className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    {transaction.type === 'EXPENSE' && !transaction.note?.includes('[SPLIT]') && (
+                                                        <button
+                                                            onClick={() => setSplitId(transaction.id)}
+                                                            className="p-1.5 text-muted-foreground"
+                                                            title={t('transactions.split')}
+                                                        >
+                                                            <Scissors className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => handleDeleteClick(transaction.id)}
+                                                        className="p-1.5 text-muted-foreground hover:text-destructive"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                            ))}
+                            )}
                         </div>
 
                         {/* Sentinel for Infinite Scroll */}
