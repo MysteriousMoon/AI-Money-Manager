@@ -122,39 +122,39 @@ export default function SettingsPage() {
 
                     <div className="space-y-2">
                         <label className="text-sm font-medium">{t('settings.theme')}</label>
-                        <div className="flex gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                             <button
                                 type="button"
                                 onClick={() => setTheme('light')}
                                 className={cn(
-                                    "flex items-center gap-2 px-4 py-2 rounded-md border text-sm font-medium transition-colors flex-1 justify-center",
+                                    "flex items-center justify-center gap-1.5 px-2 py-2 md:px-4 rounded-md border text-sm font-medium transition-colors whitespace-nowrap",
                                     mounted && theme === 'light' ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"
                                 )}
                             >
-                                <Sun className="h-4 w-4" />
-                                {t('settings.theme.light')}
+                                <Sun className="h-4 w-4 shrink-0" />
+                                <span className="hidden sm:inline">{t('settings.theme.light')}</span>
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setTheme('dark')}
                                 className={cn(
-                                    "flex items-center gap-2 px-4 py-2 rounded-md border text-sm font-medium transition-colors flex-1 justify-center",
+                                    "flex items-center justify-center gap-1.5 px-2 py-2 md:px-4 rounded-md border text-sm font-medium transition-colors whitespace-nowrap",
                                     mounted && theme === 'dark' ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"
                                 )}
                             >
-                                <Moon className="h-4 w-4" />
-                                {t('settings.theme.dark')}
+                                <Moon className="h-4 w-4 shrink-0" />
+                                <span className="hidden sm:inline">{t('settings.theme.dark')}</span>
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setTheme('system')}
                                 className={cn(
-                                    "flex items-center gap-2 px-4 py-2 rounded-md border text-sm font-medium transition-colors flex-1 justify-center",
+                                    "flex items-center justify-center gap-1.5 px-2 py-2 md:px-4 rounded-md border text-sm font-medium transition-colors whitespace-nowrap",
                                     mounted && theme === 'system' ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"
                                 )}
                             >
-                                <Laptop className="h-4 w-4" />
-                                {t('settings.theme.system')}
+                                <Laptop className="h-4 w-4 shrink-0" />
+                                <span className="hidden sm:inline">{t('settings.theme.system')}</span>
                             </button>
                         </div>
                     </div>
