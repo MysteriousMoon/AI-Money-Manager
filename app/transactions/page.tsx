@@ -25,6 +25,7 @@ export default function TransactionsPage() {
     const deleteTransaction = useStore((state) => state.deleteTransaction);
     const categories = useStore((state) => state.categories);
     const accounts = useStore((state) => state.accounts);
+    const projects = useStore((state) => state.projects);
     const isLoading = useStore((state) => state.isLoading);
     const updateTransaction = useStore((state) => state.updateTransaction);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -45,7 +46,8 @@ export default function TransactionsPage() {
             merchant: transaction.merchant,
             note: transaction.note,
             type: transaction.type,
-            currencyCode: transaction.currencyCode
+            currencyCode: transaction.currencyCode,
+            projectId: transaction.projectId
         });
     };
 
@@ -229,6 +231,26 @@ export default function TransactionsPage() {
                                                                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                                             />
                                                         </div>
+                                                        {/* Project Selection */}
+                                                        {projects.length > 0 && (
+                                                            <div>
+                                                                <label className="text-xs font-medium text-muted-foreground">{t('add.project')}</label>
+                                                                <select
+                                                                    value={editForm.projectId || ''}
+                                                                    onChange={(e) => setEditForm({ ...editForm, projectId: e.target.value || undefined })}
+                                                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                                                >
+                                                                    <option value="">{t('add.no_project')}</option>
+                                                                    {projects
+                                                                        .filter(p => p.status === 'ACTIVE')
+                                                                        .map((p) => (
+                                                                            <option key={p.id} value={p.id}>
+                                                                                {p.type === 'TRIP' ? '✈️' : p.type === 'JOB' ? '💼' : p.type === 'SIDE_HUSTLE' ? '✨' : '📅'} {p.name}
+                                                                            </option>
+                                                                        ))}
+                                                                </select>
+                                                            </div>
+                                                        )}
                                                         <div className="flex justify-end gap-2">
                                                             <button
                                                                 onClick={() => setInlineEditingId(null)}

@@ -469,6 +469,27 @@ export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual', in
                                 placeholder={t('add.optional')}
                             />
                         </div>
+
+                        {/* Project Selection */}
+                        {projects.length > 0 && (
+                            <div className="col-span-2">
+                                <label className="text-sm font-medium mb-1.5 block">{t('add.project')}</label>
+                                <select
+                                    value={projectId}
+                                    onChange={(e) => setProjectId(e.target.value)}
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                >
+                                    <option value="">{t('add.no_project')}</option>
+                                    {projects
+                                        .filter(p => p.status === 'ACTIVE')
+                                        .map((p) => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.type === 'TRIP' ? '✈️' : p.type === 'JOB' ? '💼' : p.type === 'SIDE_HUSTLE' ? '✨' : '📅'} {p.name}
+                                            </option>
+                                        ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
 
                     <div className="pt-4 flex justify-end gap-2">
