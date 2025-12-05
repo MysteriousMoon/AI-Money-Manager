@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/db';
 import { Transaction } from '@/types';
 import { getCurrentUser, withAuth } from './auth';
+import { recalculateAccountBalance } from './account';
 
 export async function getTransactions() {
     return withAuth(async (userId) => {
@@ -19,7 +20,7 @@ export async function getTransactions() {
 
 export async function addTransaction(transaction: Transaction) {
     return withAuth(async (userId) => {
-        return await prisma.transaction.create({
+        const created = await prisma.transaction.create({
             data: {
                 id: transaction.id,
                 userId: userId,
@@ -42,24 +43,22 @@ export async function addTransaction(transaction: Transaction) {
                 splitParentId: transaction.splitParentId,
             },
         });
+
+        // Sync account balances
+        if (transaction.accountId) {
+            await recalculateAccountBalance(transaction.accountId);
+        }
+        if (transaction.transferToAccountId) {
+            await recalculateAccountBalance(transaction.transferToAccountId);
+        }
+
+        return created;
     }, 'Failed to add transaction');
 }
 
 export async function deleteTransaction(id: string) {
     return withAuth(async (userId) => {
-        // Verify ownership before deleting
-        await prisma.transaction.delete({
-            where: {
-                id,
-                userId: userId,
-            },
-        });
-    }, 'Failed to delete transaction');
-}
-
-export async function updateTransaction(id: string, updates: Partial<Transaction>) {
-    return withAuth(async (userId) => {
-        // Verify ownership before updating
+        // Get transaction before deleting to know which accounts to update
         const existing = await prisma.transaction.findUnique({
             where: { id },
         });
@@ -68,7 +67,33 @@ export async function updateTransaction(id: string, updates: Partial<Transaction
             throw new Error('Transaction not found or unauthorized');
         }
 
-        return await prisma.transaction.update({
+        // Delete the transaction
+        await prisma.transaction.delete({
+            where: { id },
+        });
+
+        // Sync account balances
+        if (existing.accountId) {
+            await recalculateAccountBalance(existing.accountId);
+        }
+        if (existing.transferToAccountId) {
+            await recalculateAccountBalance(existing.transferToAccountId);
+        }
+    }, 'Failed to delete transaction');
+}
+
+export async function updateTransaction(id: string, updates: Partial<Transaction>) {
+    return withAuth(async (userId) => {
+        // Get existing transaction to track account changes
+        const existing = await prisma.transaction.findUnique({
+            where: { id },
+        });
+
+        if (!existing || existing.userId !== userId) {
+            throw new Error('Transaction not found or unauthorized');
+        }
+
+        const updated = await prisma.transaction.update({
             where: { id },
             data: {
                 amount: updates.amount,
@@ -89,6 +114,20 @@ export async function updateTransaction(id: string, updates: Partial<Transaction
                 splitParentId: updates.splitParentId,
             },
         });
+
+        // Collect all affected accounts (old and new)
+        const affectedAccountIds = new Set<string>();
+        if (existing.accountId) affectedAccountIds.add(existing.accountId);
+        if (existing.transferToAccountId) affectedAccountIds.add(existing.transferToAccountId);
+        if (updated.accountId) affectedAccountIds.add(updated.accountId);
+        if (updated.transferToAccountId) affectedAccountIds.add(updated.transferToAccountId);
+
+        // Sync all affected accounts
+        for (const accountId of affectedAccountIds) {
+            await recalculateAccountBalance(accountId);
+        }
+
+        return updated;
     }, 'Failed to update transaction');
 }
 

@@ -176,6 +176,7 @@ model Account {
   name                  String
   type                  String          // 'BANK' | 'DIGITAL_WALLET' | 'CASH' | 'CREDIT_CARD' | 'INVESTMENT' | 'OTHER'
   initialBalance        Float           @default(0)
+  currentBalance        Float           @default(0)
   currencyCode          String          @default("CNY")
   color                 String?         // For UI distinction (e.g., #FF5733)
   icon                  String?         // Emoji or icon identifier

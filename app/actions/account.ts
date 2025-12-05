@@ -24,6 +24,7 @@ export interface AccountWithBalance extends Account {
 /**
  * Calculate the current balance for an account
  * Balance = initialBalance + income - expenses - transfersOut + transfersIn
+ * This is used internally for recalculation.
  */
 async function calculateAccountBalance(accountId: string): Promise<number> {
     const account = await prisma.account.findUnique({
@@ -53,11 +54,24 @@ async function calculateAccountBalance(accountId: string): Promise<number> {
     // Add transfers TO this account
     for (const tx of account.transfersTo) {
         if (tx.type === 'TRANSFER') {
-            balance += tx.amount;
+            // Use targetAmount if available (for cross-currency transfers), otherwise use amount
+            balance += tx.targetAmount ?? tx.amount;
         }
     }
 
     return balance;
+}
+
+/**
+ * Recalculate and update the currentBalance field for an account.
+ * Call this after any transaction CRUD operation that affects the account.
+ */
+export async function recalculateAccountBalance(accountId: string): Promise<void> {
+    const newBalance = await calculateAccountBalance(accountId);
+    await prisma.account.update({
+        where: { id: accountId },
+        data: { currentBalance: newBalance },
+    });
 }
 
 export async function getAccounts() {
@@ -72,13 +86,11 @@ export async function getAccounts() {
             ],
         });
 
-        // Calculate balance for each account
-        const accountsWithBalance: AccountWithBalance[] = await Promise.all(
-            accounts.map(async (account) => ({
-                ...account,
-                currentBalance: await calculateAccountBalance(account.id),
-            }))
-        );
+        // Use cached currentBalance directly - O(1) read performance
+        const accountsWithBalance: AccountWithBalance[] = accounts.map((account) => ({
+            ...account,
+            currentBalance: account.currentBalance,
+        }));
 
         return accountsWithBalance;
     }, 'Failed to fetch accounts');
@@ -107,6 +119,7 @@ export async function createAccount(account: Omit<Account, 'id' | 'userId' | 'cr
                 name: account.name,
                 type: account.type,
                 initialBalance: account.initialBalance,
+                currentBalance: account.initialBalance, // Initialize to initial balance
                 currencyCode: account.currencyCode,
                 color: account.color,
                 icon: account.icon,
