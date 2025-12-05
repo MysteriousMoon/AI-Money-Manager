@@ -78,9 +78,210 @@ export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual', in
     const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>([]);
     const [isReviewing, setIsReviewing] = useState(false);
 
-    // ... (Include handleFileChange, handlePaste, processImages logic here - simplified for brevity but essential parts kept)
-    // For brevity in this artifact, I'll assume the complex logic is copied over or imported if possible.
-    // Since I can't easily import internal logic from a page, I will include the necessary parts.
+    // Handle paste event for scan tab
+    useEffect(() => {
+        const handlePaste = async (e: ClipboardEvent) => {
+            if (activeTab !== 'scan') return;
+
+            const items = e.clipboardData?.items;
+            if (!items) return;
+
+            const promises: Promise<string>[] = [];
+
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const blob = items[i].getAsFile();
+                    if (blob) {
+                        const promise = new Promise<string>((resolve) => {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                                const img = new Image();
+                                img.onload = () => {
+                                    const originalBase64 = event.target?.result as string;
+                                    const sizeKB = Math.round(originalBase64.length / 1024);
+                                    const sizeMB = sizeKB / 1024;
+
+                                    if (sizeMB > 4) {
+                                        const canvas = document.createElement('canvas');
+                                        let width = img.width;
+                                        let height = img.height;
+                                        const MAX_SIZE = 1536;
+
+                                        if (width > height) {
+                                            if (width > MAX_SIZE) {
+                                                height *= MAX_SIZE / width;
+                                                width = MAX_SIZE;
+                                            }
+                                        } else {
+                                            if (height > MAX_SIZE) {
+                                                width *= MAX_SIZE / height;
+                                                height = MAX_SIZE;
+                                            }
+                                        }
+
+                                        canvas.width = width;
+                                        canvas.height = height;
+                                        const ctx = canvas.getContext('2d');
+                                        ctx?.drawImage(img, 0, 0, width, height);
+
+                                        const base64 = canvas.toDataURL('image/jpeg', 0.85);
+                                        resolve(base64);
+                                    } else {
+                                        resolve(originalBase64);
+                                    }
+                                };
+                                img.src = event.target?.result as string;
+                            };
+                            reader.readAsDataURL(blob);
+                        });
+                        promises.push(promise);
+                    }
+                }
+            }
+
+            if (promises.length > 0) {
+                const base64Images = await Promise.all(promises);
+                setPreviewUrls(prev => [...prev, ...base64Images]);
+            }
+        };
+
+        window.addEventListener('paste', handlePaste);
+        return () => window.removeEventListener('paste', handlePaste);
+    }, [activeTab]);
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        const promises: Promise<string>[] = [];
+
+        Array.from(files).forEach(file => {
+            const promise = new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const originalBase64 = event.target?.result as string;
+                        const sizeKB = Math.round(originalBase64.length / 1024);
+                        const sizeMB = sizeKB / 1024;
+
+                        if (sizeMB > 4) {
+                            const canvas = document.createElement('canvas');
+                            let width = img.width;
+                            let height = img.height;
+                            const MAX_SIZE = 1536;
+
+                            if (width > height) {
+                                if (width > MAX_SIZE) {
+                                    height *= MAX_SIZE / width;
+                                    width = MAX_SIZE;
+                                }
+                            } else {
+                                if (height > MAX_SIZE) {
+                                    width *= MAX_SIZE / height;
+                                    height = MAX_SIZE;
+                                }
+                            }
+
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx?.drawImage(img, 0, 0, width, height);
+
+                            const base64 = canvas.toDataURL('image/jpeg', 0.85);
+                            resolve(base64);
+                        } else {
+                            resolve(originalBase64);
+                        }
+                    };
+                    img.src = event.target?.result as string;
+                };
+                reader.readAsDataURL(file);
+            });
+            promises.push(promise);
+        });
+
+        const base64Images = await Promise.all(promises);
+        setPreviewUrls(prev => [...prev, ...base64Images]);
+    };
+
+    const handleRemoveImage = (index: number) => {
+        setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleScan = async () => {
+        if (previewUrls.length === 0 && !scanText.trim()) return;
+
+        setIsScanning(true);
+        try {
+            const defaultAccount = accounts.find(a => a.id === accountId) || accounts.find(a => a.isDefault) || accounts[0];
+            const result = await recognizeReceipt(
+                previewUrls,
+                settings,
+                userCategories.map(c => c.name),
+                scanText,
+                defaultAccount?.currencyCode || settings.currency,
+                defaultAccount?.name || ''
+            );
+
+            if (result.success && result.data && result.data.length > 0) {
+                // Create pending transactions for review
+                const parsed = result.data.map(item => {
+                    const matchedCategory = categories.find(c =>
+                        c.name.toLowerCase() === item.category.toLowerCase()
+                    );
+                    const matchedAccount = accounts.find(a =>
+                        a.name.toLowerCase() === (item.accountName || '').toLowerCase()
+                    );
+
+                    return {
+                        id: crypto.randomUUID(),
+                        amount: item.amount,
+                        currencyCode: item.currency || settings.currency,
+                        categoryId: matchedCategory?.id || userCategories[0]?.id || '',
+                        accountId: matchedAccount?.id || accountId || accounts[0]?.id || '',
+                        date: item.date || formatLocalDate(new Date()),
+                        merchant: item.merchant,
+                        note: item.summary,
+                        type: (matchedCategory?.type as 'EXPENSE' | 'INCOME') || 'EXPENSE',
+                        source: 'AI_SCAN' as const,
+                    };
+                });
+
+                setPendingTransactions(parsed);
+                setIsReviewing(true);
+                setPreviewUrls([]);
+                setScanText('');
+            } else {
+                alert(result.error || 'Failed to recognize receipt');
+            }
+        } catch (error) {
+            console.error('Scan error:', error);
+            alert('An error occurred during scanning');
+        } finally {
+            setIsScanning(false);
+        }
+    };
+
+    const handleSaveAllPending = async () => {
+        for (const tx of pendingTransactions) {
+            await addTransaction(tx);
+        }
+        setPendingTransactions([]);
+        setIsReviewing(false);
+        if (onSuccess) {
+            onSuccess();
+        } else {
+            router.push('/');
+        }
+    };
+
+    const handleRemovePending = (id: string) => {
+        setPendingTransactions(prev => prev.filter(tx => tx.id !== id));
+        if (pendingTransactions.length <= 1) {
+            setIsReviewing(false);
+        }
+    };
 
     const handleManualSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -118,6 +319,59 @@ export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual', in
             router.push('/');
         }
     };
+
+    // Review mode UI
+    if (isReviewing && pendingTransactions.length > 0) {
+        return (
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">{t('add.review_transactions')} ({pendingTransactions.length})</h3>
+                    <button
+                        onClick={handleSaveAllPending}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                    >
+                        <Save className="h-4 w-4" />
+                        {t('add.save_all')}
+                    </button>
+                </div>
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                    {pendingTransactions.map((tx) => {
+                        const cat = categories.find(c => c.id === tx.categoryId);
+                        const acc = accounts.find(a => a.id === tx.accountId);
+                        return (
+                            <div key={tx.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <span>{cat?.icon}</span>
+                                        <span className="font-medium truncate">{tx.merchant}</span>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground truncate">{tx.note}</div>
+                                    <div className="text-xs text-muted-foreground">{tx.date} • {acc?.name}</div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className={cn("font-bold", tx.type === 'INCOME' ? 'text-emerald-500' : 'text-rose-500')}>
+                                        {tx.type === 'INCOME' ? '+' : '-'}{new Intl.NumberFormat('en-US', { style: 'currency', currency: tx.currencyCode }).format(tx.amount)}
+                                    </span>
+                                    <button
+                                        onClick={() => handleRemovePending(tx.id)}
+                                        className="p-1.5 hover:bg-destructive/10 rounded text-muted-foreground hover:text-destructive"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+                <button
+                    onClick={() => { setPendingTransactions([]); setIsReviewing(false); }}
+                    className="w-full py-2 text-sm text-muted-foreground hover:text-foreground"
+                >
+                    {t('common.cancel')}
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -238,13 +492,79 @@ export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual', in
             )}
 
             {activeTab === 'scan' && (
-                <div className="text-center py-8 text-muted-foreground">
-                    <p>{t('add.scan_available_full')}</p>
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-sm font-medium mb-2 block">{t('add.scan_text_label') || '文字描述（可选）'}</label>
+                        <textarea
+                            value={scanText}
+                            onChange={(e) => setScanText(e.target.value)}
+                            placeholder={t('add.scan_text_placeholder') || '例如：星巴克咖啡 35元'}
+                            className="w-full h-20 rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="text-sm font-medium mb-2 block">{t('add.scan_image_label') || '上传小票图片'}</label>
+                        {previewUrls.length > 0 ? (
+                            <div className="grid grid-cols-3 gap-2">
+                                {previewUrls.map((url, idx) => (
+                                    <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border bg-muted group">
+                                        <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                                        <button
+                                            onClick={() => handleRemoveImage(idx)}
+                                            className="absolute top-1 right-1 bg-destructive/90 text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </div>
+                                ))}
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary hover:bg-muted/50 flex flex-col items-center justify-center gap-1 transition-colors"
+                                >
+                                    <Plus className="h-6 w-6 text-muted-foreground" />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center space-y-3 py-6 border-2 border-dashed rounded-xl border-muted-foreground/25 bg-muted/50">
+                                <div className="h-12 w-12 bg-background rounded-full flex items-center justify-center shadow-sm">
+                                    <Camera className="h-6 w-6 text-muted-foreground" />
+                                </div>
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-4"
+                                >
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    {t('add.upload_receipt')}
+                                </button>
+                                <p className="text-xs text-muted-foreground">{t('add.paste_hint') || '也可直接粘贴图片'}</p>
+                            </div>
+                        )}
+                    </div>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept="image/*"
+                        multiple
+                        onChange={handleFileChange}
+                    />
                     <button
-                        onClick={() => router.push('/add?tab=scan')}
-                        className="mt-4 text-primary hover:underline"
+                        onClick={handleScan}
+                        disabled={(previewUrls.length === 0 && !scanText.trim()) || isScanning}
+                        className="w-full inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-11 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {t('add.go_full_scan')}
+                        {isScanning ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                {t('add.analyzing')}
+                            </>
+                        ) : (
+                            <>
+                                <Camera className="mr-2 h-4 w-4" />
+                                {t('add.scan_button')}
+                            </>
+                        )}
                     </button>
                 </div>
             )}

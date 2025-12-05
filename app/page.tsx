@@ -162,7 +162,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-8 space-y-6 md:space-y-8 bg-gray-50 dark:bg-black min-h-screen transition-colors duration-300">
+    <div className="container mx-auto p-4 md:p-8 space-y-4 md:space-y-8 bg-gray-50 dark:bg-background min-h-screen transition-colors duration-300">
       <header className="mb-4 md:mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">{t('dashboard.title')}</h1>
         <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
