@@ -162,17 +162,17 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-8 space-y-8 bg-black min-h-screen">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-white tracking-tight">{t('dashboard.title')}</h1>
-        <p className="text-gray-400 text-sm mt-1">
+    <div className="container mx-auto p-4 md:p-8 space-y-6 md:space-y-8 bg-gray-50 dark:bg-black min-h-screen transition-colors duration-300">
+      <header className="mb-4 md:mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">{t('dashboard.title')}</h1>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
           {new Date().toLocaleDateString(settings.language === 'zh' ? 'zh-CN' : 'en-US', { month: 'long', year: 'numeric' })}
         </p>
       </header>
 
-      {/* KPI Row (Grid Cols 4) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="h-40">
+      {/* KPI Row (2x2 on mobile, 4 cols on desktop) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+        <div className="h-32 md:h-40">
           <TotalBalanceCard
             totalCash={totalCash}
             totalFinancialInvested={totalFinancialInvested}
@@ -184,7 +184,7 @@ export default function Dashboard() {
             loading={loadingCash || loadingFinancialInvested}
           />
         </div>
-        <div className="h-40">
+        <div className="h-32 md:h-40">
           <MonthlyFlowCard
             income={thisMonthIncome}
             expenses={thisMonthTotal}
@@ -192,22 +192,22 @@ export default function Dashboard() {
             loading={loadingIncome || loadingThis}
           />
         </div>
-        <div className="h-40">
+        <div className="h-32 md:h-40">
           <CapitalWaterLevelCard
             totalNetWorth={totalNetWorth}
             settings={settings}
             loading={loadingFinancialInvested || loadingFixedAssets || loadingCash}
           />
         </div>
-        <div className="h-40">
+        <div className="h-32 md:h-40">
           <QuickActionsWidget />
         </div>
       </div>
 
-      {/* Main View Row (Grid Cols 3) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Transactions (2/3 width) */}
-        <div className="lg:col-span-2 h-[500px]">
+      {/* Main View Row (stacked on mobile, 2/3 + 1/3 on desktop) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+        {/* Recent Transactions (2/3 width on desktop) */}
+        <div className="lg:col-span-2 h-[400px] md:h-[450px]">
           <RecentTransactionsWidget
             transactions={transactions}
             categories={categories}
@@ -215,8 +215,8 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Expense Composition (1/3 width) */}
-        <div className="lg:col-span-1 h-[500px]">
+        {/* Expense Composition (1/3 width on desktop) */}
+        <div className="lg:col-span-1 h-[300px] md:h-[450px]">
           <ExpenseCompositionChart
             transactions={thisMonthExpenses}
             categories={categories}
