@@ -14,6 +14,7 @@ export function Navbar() {
     const isLoading = useStore((state) => state.isLoading);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const navRef = useRef<HTMLElement>(null);
 
     const mainLinks = [
         { href: '/', label: t('nav.home'), icon: Home },
@@ -30,23 +31,35 @@ export function Navbar() {
 
     const isDropdownActive = dropdownLinks.some(link => pathname === link.href);
 
-    // 交互优化：同时监听 touchstart 和 mousedown，解决 iOS 点击外部关闭不灵敏的问题
+    // 路由变化时自动关闭下拉菜单
+    useEffect(() => {
+        setIsDropdownOpen(false);
+    }, [pathname]);
+
+    // 交互优化：点击导航栏外部时关闭下拉菜单
+    // 关键修复：只监听导航栏外的点击，避免干扰导航栏内的点击事件
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+            const target = event.target as Node;
+            // 只有在点击导航栏外部时才关闭下拉菜单
+            if (navRef.current && !navRef.current.contains(target)) {
                 setIsDropdownOpen(false);
             }
         };
 
         if (isDropdownOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
-            document.addEventListener('touchstart', handleClickOutside);
-        }
+            // 使用 setTimeout 延迟添加事件监听器，避免立即触发
+            const timeoutId = setTimeout(() => {
+                document.addEventListener('mousedown', handleClickOutside);
+                document.addEventListener('touchstart', handleClickOutside, { passive: true });
+            }, 0);
 
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-            document.removeEventListener('touchstart', handleClickOutside);
-        };
+            return () => {
+                clearTimeout(timeoutId);
+                document.removeEventListener('mousedown', handleClickOutside);
+                document.removeEventListener('touchstart', handleClickOutside);
+            };
+        }
     }, [isDropdownOpen]);
 
     if (pathname === '/login' || pathname === '/register' || isLoading) {
@@ -54,7 +67,7 @@ export function Navbar() {
     }
 
     return (
-        <nav className="
+        <nav ref={navRef} className="
             fixed bottom-6 left-4 right-4 z-50 select-none
             flex h-16 items-center px-2
             rounded-full 
