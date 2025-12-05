@@ -162,7 +162,7 @@ export default function Dashboard() {
         {/* Recent Transactions (2/3 width on desktop) */}
         <div className="lg:col-span-2 h-[400px] md:h-[450px]">
           <RecentTransactionsWidget
-            transactions={transactions}
+            transactions={transactions.slice(0, 6)}
             categories={categories}
             accounts={accounts}
           />

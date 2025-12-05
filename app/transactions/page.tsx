@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@/lib/store';
 import { useTranslation } from '@/lib/i18n';
 import { format } from 'date-fns';
@@ -22,6 +22,38 @@ import { SplitTransactionModal } from '@/components/transactions/SplitTransactio
 type SortField = 'date' | 'amount' | 'category' | 'merchant';
 type SortDirection = 'asc' | 'desc';
 
+// Extracted component to prevent re-renders
+const SortButton = ({
+    field,
+    label,
+    currentSortField,
+    currentSortDirection,
+    onSort
+}: {
+    field: SortField;
+    label: string;
+    currentSortField: SortField;
+    currentSortDirection: SortDirection;
+    onSort: (field: SortField) => void;
+}) => (
+    <button
+        onClick={() => onSort(field)}
+        className={cn(
+            "flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors",
+            currentSortField === field
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+        )}
+    >
+        {label}
+        {currentSortField === field ? (
+            currentSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+        ) : (
+            <ArrowUpDown className="h-3 w-3 opacity-50" />
+        )}
+    </button>
+);
+
 export default function TransactionsPage() {
     const { t } = useTranslation();
     const router = useRouter();
@@ -42,6 +74,18 @@ export default function TransactionsPage() {
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
+    // Infinite Scroll State
+    const [visibleTransactions, setVisibleTransactions] = useState(20);
+    const [visibleDates, setVisibleDates] = useState(5);
+    const loadMoreRef = useRef<HTMLDivElement>(null);
+
+    // Optimize lookups
+    const categoryMap = useMemo(() => {
+        const map = new Map();
+        categories.forEach(c => map.set(c.id, c));
+        return map;
+    }, [categories]);
+
     const handleSort = (field: SortField) => {
         if (sortField === field) {
             setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -49,26 +93,12 @@ export default function TransactionsPage() {
             setSortField(field);
             setSortDirection('desc');
         }
+        // Reset pagination when sorting changes
+        setVisibleTransactions(20);
+        setVisibleDates(5);
     };
 
-    const SortButton = ({ field, label }: { field: SortField; label: string }) => (
-        <button
-            onClick={() => handleSort(field)}
-            className={cn(
-                "flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors",
-                sortField === field
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            )}
-        >
-            {label}
-            {sortField === field ? (
-                sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-            ) : (
-                <ArrowUpDown className="h-3 w-3 opacity-50" />
-            )}
-        </button>
-    );
+
 
     const handleEdit = (transaction: typeof transactions[0]) => {
         setEditingId(transaction.id);
@@ -108,13 +138,13 @@ export default function TransactionsPage() {
 
     const getCategoryIcon = (categoryId?: string) => {
         if (!categoryId) return '📝';
-        const category = categories.find((c) => c.id === categoryId);
+        const category = categoryMap.get(categoryId);
         return category?.icon || '📝';
     };
 
     const getCategoryName = (categoryId?: string) => {
         if (!categoryId) return 'Unknown';
-        const category = categories.find((c) => c.id === categoryId);
+        const category = categoryMap.get(categoryId);
         return category?.name || 'Unknown';
     };
 
@@ -150,7 +180,7 @@ export default function TransactionsPage() {
             }
             return sortDirection === 'asc' ? comparison : -comparison;
         });
-    }, [transactions, sortField, sortDirection, categories]);
+    }, [transactions, sortField, sortDirection, categoryMap]);
 
     // Group sorted transactions by date
     const groupedTransactions = useMemo(() => {
@@ -193,6 +223,30 @@ export default function TransactionsPage() {
 
     const editingTransaction = transactions.find(t => t.id === editingId);
 
+    // Intersection Observer for Infinite Scroll
+    const handleObserver = useCallback((entries: IntersectionObserverEntry[]) => {
+        const target = entries[0];
+        if (target.isIntersecting) {
+            setVisibleTransactions((prev) => prev + 20);
+            setVisibleDates((prev) => prev + 5);
+        }
+    }, []);
+
+    useEffect(() => {
+        const option = {
+            root: null,
+            rootMargin: "20px",
+            threshold: 0
+        };
+        const observer = new IntersectionObserver(handleObserver, option);
+        if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+
+        return () => {
+            if (loadMoreRef.current) observer.unobserve(loadMoreRef.current); // Clean up on unmount/ref change
+            observer.disconnect(); // Good practice to disconnect
+        }
+    }, [handleObserver]);
+
     if (isLoading) {
         return <LoadingSpinner />;
     }
@@ -225,16 +279,16 @@ export default function TransactionsPage() {
                             {/* Table Header with Sort Controls */}
                             <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-muted/50 text-sm font-medium text-muted-foreground border-b border-border">
                                 <div className="col-span-2">
-                                    <SortButton field="date" label={t('add.date') || 'Date'} />
+                                    <SortButton field="date" label={t('add.date') || 'Date'} currentSortField={sortField} currentSortDirection={sortDirection} onSort={handleSort} />
                                 </div>
                                 <div className="col-span-2">
-                                    <SortButton field="category" label={t('add.category') || 'Category'} />
+                                    <SortButton field="category" label={t('add.category') || 'Category'} currentSortField={sortField} currentSortDirection={sortDirection} onSort={handleSort} />
                                 </div>
                                 <div className="col-span-4">
-                                    <SortButton field="merchant" label={t('add.merchant') || 'Merchant'} />
+                                    <SortButton field="merchant" label={t('add.merchant') || 'Merchant'} currentSortField={sortField} currentSortDirection={sortDirection} onSort={handleSort} />
                                 </div>
                                 <div className="col-span-2 flex justify-end">
-                                    <SortButton field="amount" label={t('add.amount') || 'Amount'} />
+                                    <SortButton field="amount" label={t('add.amount') || 'Amount'} currentSortField={sortField} currentSortDirection={sortDirection} onSort={handleSort} />
                                 </div>
                                 <div className="col-span-2 text-right pr-2">
                                     {t('common.actions') || 'Actions'}
@@ -243,22 +297,21 @@ export default function TransactionsPage() {
 
                             {/* Table Body */}
                             <div className="divide-y divide-border">
-                                {sortedTransactions.map((transaction) => {
+                                {sortedTransactions.slice(0, visibleTransactions).map((transaction) => {
                                     if (inlineEditingId === transaction.id) {
                                         return (
                                             <div key={transaction.id} className="p-4 bg-muted/30 space-y-4">
-                                                <div className="grid grid-cols-6 gap-4">
-                                                    <div>
-                                                        <label className="text-xs font-medium text-muted-foreground">{t('add.amount')}</label>
+                                                <div className="grid grid-cols-12 gap-2 items-end">
+                                                    <div className="col-span-2">
+                                                        <label className="text-xs font-medium text-muted-foreground">{t('add.date')}</label>
                                                         <input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={editForm.amount || ''}
-                                                            onChange={(e) => setEditForm({ ...editForm, amount: parseFloat(e.target.value) })}
+                                                            type="date"
+                                                            value={editForm.date || ''}
+                                                            onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
                                                             className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                                         />
                                                     </div>
-                                                    <div>
+                                                    <div className="col-span-2">
                                                         <label className="text-xs font-medium text-muted-foreground">{t('add.category')}</label>
                                                         <select
                                                             value={editForm.categoryId || ''}
@@ -273,16 +326,7 @@ export default function TransactionsPage() {
                                                             }
                                                         </select>
                                                     </div>
-                                                    <div>
-                                                        <label className="text-xs font-medium text-muted-foreground">{t('add.date')}</label>
-                                                        <input
-                                                            type="date"
-                                                            value={editForm.date || ''}
-                                                            onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                                                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                                                        />
-                                                    </div>
-                                                    <div>
+                                                    <div className="col-span-2">
                                                         <label className="text-xs font-medium text-muted-foreground">{t('add.merchant')}</label>
                                                         <input
                                                             type="text"
@@ -291,7 +335,7 @@ export default function TransactionsPage() {
                                                             className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                                         />
                                                     </div>
-                                                    <div>
+                                                    <div className="col-span-2">
                                                         <label className="text-xs font-medium text-muted-foreground">{t('add.note')}</label>
                                                         <input
                                                             type="text"
@@ -300,7 +344,17 @@ export default function TransactionsPage() {
                                                             className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                                         />
                                                     </div>
-                                                    <div className="flex items-end gap-2">
+                                                    <div className="col-span-2">
+                                                        <label className="text-xs font-medium text-muted-foreground">{t('add.amount')}</label>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={editForm.amount || ''}
+                                                            onChange={(e) => setEditForm({ ...editForm, amount: parseFloat(e.target.value) })}
+                                                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                                        />
+                                                    </div>
+                                                    <div className="col-span-2 flex items-center justify-end gap-2 pb-0.5">
                                                         <button
                                                             onClick={() => setInlineEditingId(null)}
                                                             className="h-9 px-3 text-sm font-medium text-muted-foreground hover:text-foreground border border-input rounded-md"
@@ -404,11 +458,13 @@ export default function TransactionsPage() {
                             {/* Mobile Sort Controls */}
                             <div className="flex items-center gap-2 flex-wrap mb-3 px-1">
                                 <span className="text-xs text-muted-foreground">{t('common.sort_by')}:</span>
-                                <SortButton field="date" label={t('add.date') || 'Date'} />
-                                <SortButton field="amount" label={t('add.amount') || 'Amount'} />
+                                <SortButton field="date" label={t('add.date') || 'Date'} currentSortField={sortField} currentSortDirection={sortDirection} onSort={handleSort} />
+                                <SortButton field="category" label={t('add.category') || 'Category'} currentSortField={sortField} currentSortDirection={sortDirection} onSort={handleSort} />
+                                <SortButton field="merchant" label={t('add.merchant') || 'Merchant'} currentSortField={sortField} currentSortDirection={sortDirection} onSort={handleSort} />
+                                <SortButton field="amount" label={t('add.amount') || 'Amount'} currentSortField={sortField} currentSortDirection={sortDirection} onSort={handleSort} />
                             </div>
 
-                            {sortedDates.map((date) => (
+                            {sortedDates.slice(0, visibleDates).map((date) => (
                                 <div key={date}>
                                     <h2 className="text-xs font-medium text-muted-foreground sticky top-0 bg-background/95 py-2 px-1 z-10 backdrop-blur-sm">
                                         {(() => {
@@ -430,12 +486,11 @@ export default function TransactionsPage() {
                                                     <div key={transaction.id} className="p-3 bg-muted/30 space-y-3">
                                                         <div className="grid grid-cols-2 gap-2">
                                                             <div>
-                                                                <label className="text-xs text-muted-foreground">{t('add.amount')}</label>
+                                                                <label className="text-xs text-muted-foreground">{t('add.date')}</label>
                                                                 <input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    value={editForm.amount || ''}
-                                                                    onChange={(e) => setEditForm({ ...editForm, amount: parseFloat(e.target.value) })}
+                                                                    type="date"
+                                                                    value={editForm.date || ''}
+                                                                    onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
                                                                     className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
                                                                 />
                                                             </div>
@@ -450,6 +505,34 @@ export default function TransactionsPage() {
                                                                         <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
                                                                     ))}
                                                                 </select>
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-xs text-muted-foreground">{t('add.merchant')}</label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={editForm.merchant || ''}
+                                                                    onChange={(e) => setEditForm({ ...editForm, merchant: e.target.value })}
+                                                                    className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-xs text-muted-foreground">{t('add.note')}</label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={editForm.note || ''}
+                                                                    onChange={(e) => setEditForm({ ...editForm, note: e.target.value })}
+                                                                    className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                                />
+                                                            </div>
+                                                            <div className="col-span-2">
+                                                                <label className="text-xs text-muted-foreground">{t('add.amount')}</label>
+                                                                <input
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    value={editForm.amount || ''}
+                                                                    onChange={(e) => setEditForm({ ...editForm, amount: parseFloat(e.target.value) })}
+                                                                    className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                                                />
                                                             </div>
                                                         </div>
                                                         <div className="flex gap-2">
@@ -490,9 +573,24 @@ export default function TransactionsPage() {
                                                         </span>
                                                         <button
                                                             onClick={() => handleInlineEdit(transaction)}
-                                                            className="p-1 text-muted-foreground"
+                                                            className="p-1.5 text-muted-foreground"
                                                         >
                                                             <Edit2 className="h-3.5 w-3.5" />
+                                                        </button>
+                                                        {transaction.type === 'EXPENSE' && !transaction.note?.includes('[SPLIT]') && (
+                                                            <button
+                                                                onClick={() => setSplitId(transaction.id)}
+                                                                className="p-1.5 text-muted-foreground"
+                                                                title={t('transactions.split')}
+                                                            >
+                                                                <Scissors className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => handleDeleteClick(transaction.id)}
+                                                            className="p-1.5 text-muted-foreground hover:text-destructive"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
                                                         </button>
                                                     </div>
                                                 </div>
@@ -502,6 +600,9 @@ export default function TransactionsPage() {
                                 </div>
                             ))}
                         </div>
+
+                        {/* Sentinel for Infinite Scroll */}
+                        <div ref={loadMoreRef} className="h-4 w-full" />
                     </>
                 )}
             </div>
