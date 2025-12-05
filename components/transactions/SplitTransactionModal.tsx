@@ -108,7 +108,7 @@ export function SplitTransactionModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
             <div className="w-full max-w-lg rounded-lg bg-background shadow-lg animate-in zoom-in-95 max-h-[90vh] flex flex-col">
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b">

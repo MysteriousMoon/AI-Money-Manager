@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Settings, PieChart, Repeat, List, TrendingUp, Wallet, Plus } from 'lucide-react';
+import { Home, Settings, PieChart, Repeat, List, TrendingUp, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
 import { useStore } from '@/lib/store';
@@ -34,16 +34,7 @@ export function Sidebar() {
             </div>
 
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-                <div className="mb-6 px-3">
-                    <Link
-                        href="?action=add"
-                        scroll={false}
-                        className="flex items-center justify-center gap-2 w-full bg-primary text-primary-foreground hover:bg-primary/90 h-10 rounded-md font-medium transition-colors"
-                    >
-                        <Plus className="h-4 w-4" />
-                        {t('dashboard.manual_add')}
-                    </Link>
-                </div>
+
 
                 <div className="space-y-1">
                     <p className="px-4 text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">

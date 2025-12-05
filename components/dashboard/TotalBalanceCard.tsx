@@ -28,14 +28,14 @@ export function TotalBalanceCard({
 }: TotalBalanceCardProps) {
     const { t } = useTranslation();
 
-    const totalAssets = totalCash + totalFinancialInvested;
+    // const totalAssets = totalCash + totalFinancialInvested;
 
     return (
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-3 md:p-6 shadow-sm h-full flex flex-col justify-between relative overflow-hidden group hover:shadow-md dark:hover:bg-gray-800/50 transition-all">
             <div className="space-y-1 md:space-y-2 relative z-10">
-                <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm font-medium">{t('common.total')} {t('common.asset')}</p>
+                <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm font-medium">{t('dashboard.balance')}</p>
                 <div className="text-xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
-                    {loading ? '...' : formatCurrency(totalAssets, settings.currency)}
+                    {loading ? '...' : formatCurrency(totalCash, settings.currency)}
                 </div>
                 <div className="flex items-center gap-1 md:gap-2 text-[10px] md:text-xs text-muted-foreground mt-1 md:mt-2">
                     <span className="text-emerald-400 flex items-center">

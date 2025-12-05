@@ -45,7 +45,7 @@ export async function getServerExchangeRate(
     // Get API key from system settings or use override
     const apiKey = overrideApiKey || await getSystemExchangeRateApiKey();
 
-    const rates = await getServerRates(apiKey);
+    const rates = await getExchangeRates(apiKey);
     if (!rates) return 1;
 
     const fromRate = rates[fromCurrency] || 1;
@@ -70,7 +70,7 @@ export async function convertAmount(
 /**
  * Fetch and cache exchange rates from API
  */
-async function getServerRates(apiKey?: string): Promise<Record<string, number> | null> {
+export async function getExchangeRates(apiKey?: string): Promise<Record<string, number> | null> {
     // Check if cache is valid
     if (ratesCache && Date.now() - ratesCache.timestamp < CACHE_DURATION) {
         return ratesCache.rates;

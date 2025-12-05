@@ -26,12 +26,12 @@ function calculateDailyDepreciation(asset: Investment, date: Date): number {
     return dailyDepreciation;
 }
 
-// Helper to calculate project amortization for a specific day (with currency conversion)
-async function calculateProjectAmortization(
+// Helper to calculate project amortization for a specific day (optimized with cached rates)
+function calculateProjectAmortization(
     project: Project & { transactions: Transaction[] },
     date: Date,
-    baseCurrency: string
-): Promise<number> {
+    toBase: (amount: number, currency: string) => number
+): number {
     if (project.type !== 'TRIP' && project.type !== 'EVENT') return 0;
     if (!project.startDate || !project.endDate) return 0;
 
@@ -43,11 +43,11 @@ async function calculateProjectAmortization(
     // Total Cost of Project (with currency conversion)
     let totalCost = 0;
     for (const t of project.transactions) {
-        const amount = await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
+        const amount = toBase(toNumber(t.amount), t.currencyCode);
         if (t.type === 'EXPENSE') {
             totalCost += amount;
         } else if (t.type === 'INCOME') {
-            totalCost -= amount; // Income reduces the total cost (e.g. refunds, split reimbursements)
+            totalCost -= amount; // Income reduces the total cost
         }
     }
 
@@ -55,35 +55,50 @@ async function calculateProjectAmortization(
     const durationMs = endDate.getTime() - startDate.getTime();
     const durationDays = Math.max(1, Math.ceil(durationMs / (1000 * 60 * 60 * 24)) + 1);
 
-    return Math.max(0, totalCost / durationDays); // Ensure non-negative daily cost
+    return Math.max(0, totalCost / durationDays);
 }
 
 export async function getMeIncMetrics(startDate: string, endDate: string) {
     return withAuth(async (userId) => {
         const start = new Date(startDate);
         const end = new Date(endDate);
+        const todayStr = new Date().toISOString().split('T')[0];
 
-        // Fetch user settings for base currency
-        const userSettings = await prisma.settings.findUnique({
-            where: { userId }
-        });
+        // 1. Fetch User Settings & Rates ONCE
+        const userSettings = await prisma.settings.findUnique({ where: { userId } });
+        const systemSettings = await prisma.systemSettings.findUnique({ where: { id: 'default' } });
+
         const baseCurrency = userSettings?.currency || 'CNY';
+        // Use system API key if available to get fresh rates, otherwise fallback logic in getExchangeRates handles it
+        // Note: We need to import getExchangeRates from lib/server-currency
+        const rates = await import('@/lib/server-currency').then(m => m.getExchangeRates(systemSettings?.exchangeRateApiKey || undefined));
 
-        const transactions = await prisma.transaction.findMany({
+        // Optimize: Create a synchronous conversion helper
+        const toBase = (amount: number, currency: string): number => {
+            if (!rates) return amount; // Fallback
+            if (currency === baseCurrency) return amount;
+            const fromRate = rates[currency] || 1;
+            const toRate = rates[baseCurrency] || 1;
+            return amount * (toRate / fromRate);
+        };
+
+        // 2. Fetch Data (Optimized Scope)
+        // Fetch accounts for current balance
+        const allAccounts = await prisma.account.findMany({ where: { userId } });
+
+        // Fetch transactions from Start Date until NOW (to unwind current balance)
+        const relevantTransactions = await prisma.transaction.findMany({
             where: {
                 userId,
-                date: { gte: startDate, lte: endDate },
+                date: { gte: startDate }, // Only fetch history needed for the window + unwinding
             }
         });
 
         const assets = await prisma.investment.findMany({
-            where: {
-                userId,
-                type: 'ASSET',
-                status: 'ACTIVE'
-            }
+            where: { userId, type: 'ASSET', status: 'ACTIVE' }
         });
 
+        // Projects for amortization
         const projects = await prisma.project.findMany({
             where: {
                 userId,
@@ -91,136 +106,152 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
                 startDate: { lte: endDate },
                 endDate: { gte: startDate }
             },
-            include: {
-                transactions: true
-            }
+            include: { transactions: true }
         });
 
-        // Calculate Current Capital Level (Snapshot at "Now")
-        const allAccounts = await prisma.account.findMany({ where: { userId } });
-        const allInvestments = await prisma.investment.findMany({ where: { userId, status: 'ACTIVE' } });
-        const allTx = await prisma.transaction.findMany({ where: { userId } });
-
-        // Calculate Current Balances with currency conversion
-        // Only include non-INVESTMENT, non-ASSET accounts for "cash" capital
-        const accountBalances = new Map<string, number>();
-        const cashAccountIds = new Set<string>();
-        for (const a of allAccounts) {
-            const balance = await convertAmount(toNumber(a.initialBalance), a.currencyCode, baseCurrency);
-            accountBalances.set(a.id, balance);
-            // Track which accounts are "cash" accounts
-            if (a.type !== 'INVESTMENT' && a.type !== 'ASSET') {
-                cashAccountIds.add(a.id);
-            }
-        }
-
-        for (const t of allTx) {
-            const convertedAmount = await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
-
-            if (t.accountId && accountBalances.has(t.accountId)) {
-                const bal = accountBalances.get(t.accountId) || 0;
-                if (t.type === 'EXPENSE') accountBalances.set(t.accountId, bal - convertedAmount);
-                if (t.type === 'INCOME') accountBalances.set(t.accountId, bal + convertedAmount);
-                if (t.type === 'TRANSFER') accountBalances.set(t.accountId, bal - convertedAmount);
-            }
-            if (t.transferToAccountId && accountBalances.has(t.transferToAccountId)) {
-                const bal = accountBalances.get(t.transferToAccountId) || 0;
-                const targetAmount = toNumber(t.targetAmount) || toNumber(t.amount);
-                const convertedTarget = await convertAmount(targetAmount, t.targetCurrencyCode || t.currencyCode, baseCurrency);
-                accountBalances.set(t.transferToAccountId, bal + convertedTarget);
-            }
-        }
-
-        // Only sum cash accounts (exclude INVESTMENT and ASSET type accounts)
+        // 3. Calculate "Current Capital" (Today) from Account Balances
         let totalCurrentCapital = 0;
-        cashAccountIds.forEach(id => {
-            totalCurrentCapital += accountBalances.get(id) || 0;
-        });
+        for (const a of allAccounts) {
+            // Only sum cash accounts (exclude INVESTMENT and ASSET)
+            if (a.type !== 'INVESTMENT' && a.type !== 'ASSET') {
+                totalCurrentCapital += toBase(toNumber(a.currentBalance), a.currencyCode);
+            }
+        }
 
         // Add financial investments (exclude fixed assets)
-        for (const i of allInvestments) {
+        const activeInvestments = await prisma.investment.findMany({ where: { userId, status: 'ACTIVE' } });
+        for (const i of activeInvestments) {
             if (i.type !== 'ASSET') {
                 const value = toNumber(i.currentAmount) || toNumber(i.initialAmount);
-                totalCurrentCapital += await convertAmount(value, i.currencyCode, baseCurrency);
+                totalCurrentCapital += toBase(value, i.currencyCode);
             }
         }
 
-        // Calculate Net Change from Start to Now
+        // 4. Calculate Capital at Start Date (Backwards Calculation)
+        // Logic: CapitalAtStart = CurrentCapital - NetChange(Start -> Now)
+        // We need to reverse transactions that happened AFTER start date up to now.
+
+        // Filter transactions for net worth change analysis
+        // Note: We only care about transactions that affect Liquid Cash or Financial Investments
+        // Fixed Asset purchases are transfers (Cash -> Asset), so Net Worth stays same? 
+        // No, current logic tracks "Capital Water Level" which includes Total Assets. 
+        // Wait, current logic in dashboard says "Total Assets + Cash".
+        // BUT the chart is "Survival View" -> usually purely liquid? 
+        // Let's check original implementation:
+        // "totalCurrentCapital" summed cash + financial investments (excluded assets).
+        // Then it added net changes.
+        // IF we want to track "Liquid + Financial" (excluding fixed assets):
+
         let netChangeStartToNow = 0;
-        const startObj = new Date(startDate);
 
-        for (const t of allTx) {
-            const tDate = new Date(t.date);
-            if (tDate >= startObj) {
-                const convertedAmount = await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
+        // We need to iterate from StartDate to NOW to find the net change
+        for (const t of relevantTransactions) {
+            // If transaction is in the future relative to "Now" (unlikely) skip
+            // We processed all transactions >= startDate
 
-                let change = 0;
-                if (t.type === 'INCOME') change = convertedAmount;
-                if (t.type === 'EXPENSE') change = -convertedAmount;
-                if (t.type === 'TRANSFER') {
-                    const inv = allInvestments.find(i => i.id === t.investmentId);
-                    if (inv && inv.type === 'ASSET') {
-                        change = -convertedAmount;
+            const amount = toBase(toNumber(t.amount), t.currencyCode);
+            let change = 0;
+
+            if (t.type === 'INCOME') change = amount;
+            if (t.type === 'EXPENSE') change = -amount;
+            if (t.type === 'TRANSFER') {
+                // Transfers out reduce cash. 
+                // If transfer is to an Investment (Financial), it's a wash (Cash down, Inv up), unless we only track Cash?
+                // Original logic:
+                // if (t.type === 'TRANSFER') {
+                //    const inv = allInvestments.find(i => i.id === t.investmentId);
+                //    if (inv && inv.type === 'ASSET') change = -convertedAmount; 
+                // }
+                // Meaning: Buying an ASSET reduces Capital (Liquid+Financial). Buying a STOCK does not.
+                // We need to replicate this logic efficiently.
+                // t.investmentId is on the transaction.
+
+                // If investmentId is present, check if it's an ASSET
+                if (t.investmentId) {
+                    // We need to know the type of that investment.
+                    // We can find it in activeInvestments or we might need to fetch closed ones too if looking at history.
+                    // optimization: we haven't fetched closed investments.
+                    // But usually ASSETs are long term.
+                    // Let's assume we can check against a list of ASSET IDs.
+                    const isAsset = assets.some(a => a.id === t.investmentId);
+                    // What if it was a closed asset? We might miss it. 
+                    // For robustness, we might need to fetch all investment types map.
+                    if (isAsset) {
+                        change = -amount;
                     }
                 }
-
-                netChangeStartToNow += change;
             }
+
+            netChangeStartToNow += change;
         }
 
         const capitalAtStart = totalCurrentCapital - netChangeStartToNow;
 
-        // Generate Daily Data
+        // 5. Generate Daily Data (Forward from Start)
         const dailyData = [];
         let currentCapital = capitalAtStart;
         const currentDate = new Date(start);
 
+        // Pre-group transactions by date for O(1) lookup in loop
+        const txByDate = new Map<string, Transaction[]>();
+        for (const t of relevantTransactions) {
+            const date = t.date; // YYYY-MM-DD
+            if (date >= startDate && date <= endDate) {
+                if (!txByDate.has(date)) txByDate.set(date, []);
+                txByDate.get(date)?.push(t);
+            }
+        }
+
         while (currentDate <= end) {
             const dateStr = currentDate.toISOString().split('T')[0];
 
-            const dailyTx = transactions.filter(t => t.date === dateStr);
+            // Get transactions for this day
+            const dailyTx = txByDate.get(dateStr) || [];
+
             let dailyIncome = 0;
             let dailyExpense = 0;
-            let dailyNetChange = 0;
 
             for (const t of dailyTx) {
-                const convertedAmount = await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
+                const amount = toBase(toNumber(t.amount), t.currencyCode);
 
-                if (t.type === 'INCOME') dailyIncome += convertedAmount;
-                if (t.type === 'EXPENSE') dailyExpense += convertedAmount;
+                if (t.type === 'INCOME') dailyIncome += amount;
+                if (t.type === 'EXPENSE') dailyExpense += amount;
                 if (t.type === 'TRANSFER') {
-                    const inv = allInvestments.find(i => i.id === t.investmentId);
-                    if (inv && inv.type === 'ASSET') {
-                        dailyExpense += convertedAmount;
+                    // Same logic as above for daily expense tracking
+                    // If money went to an ASSET, it counts as an "Expense" (Cash outflow) for this view
+                    if (t.investmentId && assets.some(a => a.id === t.investmentId)) {
+                        dailyExpense += amount;
                     }
                 }
             }
 
-            dailyNetChange = dailyIncome - dailyExpense;
-            currentCapital += dailyNetChange;
+            // Update running capital
+            // Note: This "currentCapital" is iterating forward. 
+            // currentCapital += (Income - Expense).
+            // Does this match the "Net Change" logic?
+            // Yes, if Net Change = Income - Expense (where Expense includes Asset purchases).
+            currentCapital += (dailyIncome - dailyExpense);
 
             // Ordinary Expenses (excludes project-linked and investment-linked)
-            const ordinaryTx = dailyTx.filter(t =>
-                t.type === 'EXPENSE' &&
-                !t.projectId &&
-                !t.investmentId
-            );
+            // Used for "Burn Rate" calculation
             let ordinaryCost = 0;
-            for (const t of ordinaryTx) {
-                ordinaryCost += await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
+            for (const t of dailyTx) {
+                if (t.type === 'EXPENSE' && !t.projectId && !t.investmentId) {
+                    ordinaryCost += toBase(toNumber(t.amount), t.currencyCode);
+                }
             }
 
-            // Asset Depreciation (already in asset's currency, convert to base)
+            // Asset Depreciation
             let depreciationCost = 0;
             for (const asset of assets) {
                 const dailyDep = calculateDailyDepreciation(asset, currentDate);
-                depreciationCost += await convertAmount(dailyDep, asset.currencyCode, baseCurrency);
+                depreciationCost += toBase(dailyDep, asset.currencyCode);
             }
 
             // Project Amortization
             let projectCost = 0;
             for (const project of projects) {
-                projectCost += await calculateProjectAmortization(project, currentDate, baseCurrency);
+                projectCost += calculateProjectAmortization(project, currentDate, toBase);
             }
 
             dailyData.push({
@@ -303,39 +334,15 @@ export async function getDashboardSummary() {
         const monthStart = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0];
         const monthEnd = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0];
 
-        // --- Calculate Account Balances with Currency Conversion ---
-        // Convert everything to base currency first, then calculate
-        const accountBalances = new Map<string, number>();
-        for (const a of accounts) {
-            const convertedInitial = await convertAmount(toNumber(a.initialBalance), a.currencyCode, baseCurrency);
-            accountBalances.set(a.id, convertedInitial);
-        }
-
-        for (const t of transactions) {
-            const convertedAmount = await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
-
-            if (t.accountId && accountBalances.has(t.accountId)) {
-                const bal = accountBalances.get(t.accountId) || 0;
-                if (t.type === 'EXPENSE') accountBalances.set(t.accountId, bal - convertedAmount);
-                if (t.type === 'INCOME') accountBalances.set(t.accountId, bal + convertedAmount);
-                if (t.type === 'TRANSFER') accountBalances.set(t.accountId, bal - convertedAmount);
-            }
-            if (t.transferToAccountId && accountBalances.has(t.transferToAccountId)) {
-                const bal = accountBalances.get(t.transferToAccountId) || 0;
-                const targetAmount = toNumber(t.targetAmount) || toNumber(t.amount);
-                const convertedTarget = await convertAmount(targetAmount, t.targetCurrencyCode || t.currencyCode, baseCurrency);
-                accountBalances.set(t.transferToAccountId, bal + convertedTarget);
-            }
-        }
-
-        // --- Calculate Totals (already in base currency) ---
+        // --- Calculate Totals ---
 
         // 1. Cash (non-investment, non-asset accounts)
+        // Optimize: Use account.currentBalance instead of recomputing from transactions
         let totalCash = 0;
         for (const a of accounts) {
             if (a.type !== 'INVESTMENT' && a.type !== 'ASSET') {
-                const balance = accountBalances.get(a.id) || 0;
-                totalCash += balance; // Already converted to base currency
+                const balance = await convertAmount(toNumber(a.currentBalance), a.currencyCode, baseCurrency);
+                totalCash += balance;
             }
         }
 

@@ -60,7 +60,7 @@ export function Navbar() {
     }
 
     return (
-        <nav className="fixed bottom-0 left-0 right-0 border-t bg-background/80 backdrop-blur-lg md:top-0 md:bottom-auto md:border-b md:border-t-0 z-50">
+        <nav className="fixed bottom-6 left-4 right-4 rounded-full border shadow-2xl bg-background/80 backdrop-blur-lg z-50">
             <div className="container mx-auto flex h-16 items-center justify-around md:justify-center md:gap-8">
                 {/* Main navigation links */}
                 {mainLinks.map(({ href, label, icon: Icon }) => (
