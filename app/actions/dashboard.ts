@@ -32,7 +32,7 @@ function calculateProjectAmortization(
     date: Date,
     toBase: (amount: number, currency: string) => number
 ): number {
-    if (project.type !== 'TRIP' && project.type !== 'EVENT') return 0;
+    // All project types with start/end dates are amortized
     if (!project.startDate || !project.endDate) return 0;
 
     const startDate = new Date(project.startDate);
@@ -98,11 +98,10 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
             where: { userId, type: 'ASSET', status: 'ACTIVE' }
         });
 
-        // Projects for amortization
+        // Projects for amortization (all types with date ranges)
         const projects = await prisma.project.findMany({
             where: {
                 userId,
-                type: { in: ['TRIP', 'EVENT'] },
                 startDate: { lte: endDate },
                 endDate: { gte: startDate }
             },

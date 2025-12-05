@@ -166,7 +166,10 @@ export default function ProjectDetailPage() {
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    <button className="p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground">
+                    <button
+                        onClick={() => router.push(`/projects/${projectId}/edit`)}
+                        className="p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground"
+                    >
                         <Edit2 className="h-4 w-4" />
                     </button>
                     <button

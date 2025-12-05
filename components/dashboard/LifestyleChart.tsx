@@ -62,8 +62,18 @@ export function LifestyleChart({ data }: LifestyleChartProps) {
                                 borderRadius: '0.5rem',
                                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                             }}
-                            formatter={(value: number, name: string) => [formatCurrency(value, settings.currency), name]}
-                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                            formatter={(value: number | string | Array<number | string>, name: string) => {
+                                const numValue = typeof value === 'number' ? value : (typeof value === 'string' ? parseFloat(value) : 0);
+                                return [formatCurrency(numValue || 0, settings.currency), name];
+                            }}
+                            labelFormatter={(label) => {
+                                // Handle YYYY-MM-DD format from data
+                                if (typeof label === 'string' && label.includes('-')) {
+                                    const [year, month, day] = label.split('-').map(Number);
+                                    return new Date(year, month - 1, day).toLocaleDateString();
+                                }
+                                return new Date(label).toLocaleDateString();
+                            }}
                         />
                         <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
 

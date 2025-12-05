@@ -300,7 +300,8 @@ export default function TransactionsPage() {
                                 {sortedTransactions.slice(0, visibleTransactions).map((transaction) => {
                                     if (inlineEditingId === transaction.id) {
                                         return (
-                                            <div key={transaction.id} className="p-4 bg-muted/30 space-y-4">
+                                            <div key={transaction.id} className="p-4 bg-muted/30 space-y-3">
+                                                {/* First row: Date, Category, Merchant, Note, Project, Amount */}
                                                 <div className="grid grid-cols-12 gap-2 items-end">
                                                     <div className="col-span-2">
                                                         <label className="text-xs font-medium text-muted-foreground">{t('add.date')}</label>
@@ -367,20 +368,21 @@ export default function TransactionsPage() {
                                                             className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                                         />
                                                     </div>
-                                                    <div className="col-span-2 flex items-center justify-end gap-2 pb-0.5">
-                                                        <button
-                                                            onClick={() => setInlineEditingId(null)}
-                                                            className="h-9 px-3 text-sm font-medium text-muted-foreground hover:text-foreground border border-input rounded-md"
-                                                        >
-                                                            {t('transactions.cancel_edit')}
-                                                        </button>
-                                                        <button
-                                                            onClick={handleInlineUpdate}
-                                                            className="h-9 px-3 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-                                                        >
-                                                            {t('transactions.update')}
-                                                        </button>
-                                                    </div>
+                                                </div>
+                                                {/* Second row: Action buttons aligned to the right */}
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                        onClick={() => setInlineEditingId(null)}
+                                                        className="h-9 px-3 text-sm font-medium text-muted-foreground hover:text-foreground border border-input rounded-md"
+                                                    >
+                                                        {t('transactions.cancel_edit')}
+                                                    </button>
+                                                    <button
+                                                        onClick={handleInlineUpdate}
+                                                        className="h-9 px-3 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                                                    >
+                                                        {t('transactions.update')}
+                                                    </button>
                                                 </div>
                                             </div>
                                         );
@@ -543,7 +545,7 @@ export default function TransactionsPage() {
                                                                     <label className="text-xs text-muted-foreground">{t('add.project') || '项目'}</label>
                                                                     <select
                                                                         value={editForm.projectId || ''}
-                                                                        onChange={(e) => setEditForm({ ...editForm, projectId: e.target.value || undefined })}
+                                                                        onChange={(e) => setEditForm({ ...editForm, projectId: e.target.value })}
                                                                         className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
                                                                     >
                                                                         <option value="">{t('add.no_project') || '无项目'}</option>
@@ -678,7 +680,7 @@ export default function TransactionsPage() {
                                                             <label className="text-xs text-muted-foreground">{t('add.project') || '项目'}</label>
                                                             <select
                                                                 value={editForm.projectId || ''}
-                                                                onChange={(e) => setEditForm({ ...editForm, projectId: e.target.value || undefined })}
+                                                                onChange={(e) => setEditForm({ ...editForm, projectId: e.target.value })}
                                                                 className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
                                                             >
                                                                 <option value="">{t('add.no_project') || '无项目'}</option>

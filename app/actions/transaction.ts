@@ -118,7 +118,9 @@ export async function updateTransaction(id: string, updates: Partial<Transaction
                 targetCurrencyCode: updates.targetCurrencyCode,
                 fee: updates.fee,
                 feeCurrencyCode: updates.feeCurrencyCode,
-                projectId: updates.projectId,
+                // Handle projectId explicitly: if property exists in updates, use its value (or null if empty)
+                // This ensures we can both set and clear the project association
+                ...(updates.hasOwnProperty('projectId') ? { projectId: updates.projectId || null } : {}),
                 excludeFromAnalytics: updates.excludeFromAnalytics,
                 splitParentId: updates.splitParentId,
             },
