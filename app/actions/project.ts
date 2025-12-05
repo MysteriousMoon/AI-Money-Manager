@@ -112,7 +112,6 @@ export async function getProjectStats(id: string) {
         });
 
         const baseCurrency = userSettings?.currency || 'CNY';
-        const exchangeRateApiKey = userSettings?.exchangeRateApiKey || undefined;
 
         // Import server currency conversion
         const { convertAmount } = await import('@/lib/server-currency');
@@ -120,26 +119,26 @@ export async function getProjectStats(id: string) {
         // Calculate expenses with currency conversion
         let expenses = 0;
         for (const t of project.transactions.filter(t => t.type === 'EXPENSE')) {
-            expenses += await convertAmount(t.amount, t.currencyCode, baseCurrency, exchangeRateApiKey);
+            expenses += await convertAmount(t.amount, t.currencyCode, baseCurrency);
         }
 
         // Calculate income with currency conversion
         let income = 0;
         for (const t of project.transactions.filter(t => t.type === 'INCOME')) {
-            income += await convertAmount(t.amount, t.currencyCode, baseCurrency, exchangeRateApiKey);
+            income += await convertAmount(t.amount, t.currencyCode, baseCurrency);
         }
 
         // Calculate transfers (usually same currency, but convert anyway)
         let transfers = 0;
         for (const t of project.transactions.filter(t => t.type === 'TRANSFER')) {
-            transfers += await convertAmount(t.amount, t.currencyCode, baseCurrency, exchangeRateApiKey);
+            transfers += await convertAmount(t.amount, t.currencyCode, baseCurrency);
         }
 
         // Calculate depreciation from linked assets with currency conversion
         let depreciation = 0;
         for (const i of project.investments.filter(i => i.type === 'ASSET' && i.purchasePrice && i.currentAmount)) {
             const depreciationAmount = (i.purchasePrice || 0) - (i.currentAmount || 0);
-            depreciation += await convertAmount(depreciationAmount, i.currencyCode, baseCurrency, exchangeRateApiKey);
+            depreciation += await convertAmount(depreciationAmount, i.currencyCode, baseCurrency);
         }
 
         const netResult = income - expenses - depreciation;

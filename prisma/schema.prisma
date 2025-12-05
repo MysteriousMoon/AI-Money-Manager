@@ -205,3 +205,13 @@ model Project {
   @@index([userId])
   @@map("projects")
 }
+
+// Global system settings (admin-managed)
+model SystemSettings {
+  id                 String   @id @default("default")
+  exchangeRateApiKey String?
+  updatedAt          DateTime @updatedAt
+  updatedBy          String?  // Admin user ID who last updated
+
+  @@map("system_settings")
+}

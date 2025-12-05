@@ -1,12 +1,10 @@
 'use client';
 
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useStore } from '@/lib/store';
-import { useCurrencyTotal } from '@/hooks/useCurrencyTotal';
 import { parseLocalDate } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
-import { calculateDepreciation } from '@/lib/depreciation';
-import { getMeIncMetrics } from '@/app/actions/dashboard';
+import { getMeIncMetrics, getDashboardSummary } from '@/app/actions/dashboard';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 // Widgets
@@ -25,9 +23,35 @@ interface DailyBurnRate {
   totalDailyCost: number;
 }
 
+interface DashboardSummary {
+  baseCurrency: string;
+  totalCash: number;
+  totalFinancialInvested: number;
+  totalFixedAssets: number;
+  totalNetWorth: number;
+  thisMonthExpenses: number;
+  thisMonthIncome: number;
+  thisMonthNet: number;
+  allTimeExpenses: number;
+  allTimeIncome: number;
+  allTimeNet: number;
+  assetDetails: Array<{
+    id: string;
+    name: string;
+    startDate: string;
+    currentValue: number;
+    dailyDep: number;
+    originalCurrency: string;
+  }>;
+}
+
 export default function Dashboard() {
-  const { transactions, settings, categories, isLoading, investments, accounts } = useStore();
+  const { transactions, settings, categories, isLoading, accounts } = useStore();
   const { t } = useTranslation();
+
+  // Server-side calculated summary
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState(true);
 
   // Me Inc. Metrics State
   const [metrics, setMetrics] = useState<{
@@ -38,20 +62,33 @@ export default function Dashboard() {
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
 
+  // Fetch all server-side data
   useEffect(() => {
-    const fetchMetrics = async () => {
-      const startDate = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0];
-      const endDate = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0];
+    const fetchData = async () => {
+      setLoadingSummary(true);
+
       try {
-        const response = await getMeIncMetrics(startDate, endDate);
-        if (response.success && response.data) {
-          setMetrics(response.data);
+        // Fetch summary (with currency conversion)
+        const summaryResponse = await getDashboardSummary();
+        if (summaryResponse.success && summaryResponse.data) {
+          setSummary(summaryResponse.data);
+        }
+
+        // Fetch metrics for burn rate
+        const startDate = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0];
+        const endDate = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0];
+        const metricsResponse = await getMeIncMetrics(startDate, endDate);
+        if (metricsResponse.success && metricsResponse.data) {
+          setMetrics(metricsResponse.data);
         }
       } catch (error) {
-        console.error('Failed to fetch metrics:', error);
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setLoadingSummary(false);
       }
     };
-    fetchMetrics();
+
+    fetchData();
   }, [currentMonth, currentYear]);
 
   const averageBurnRate = useMemo(() => {
@@ -60,106 +97,34 @@ export default function Dashboard() {
     return total / metrics.dailyBurnRate.length;
   }, [metrics]);
 
-  const thisMonthTransactions = useMemo(() => transactions.filter(t => {
-    const d = parseLocalDate(t.date);
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-  }), [transactions, currentMonth, currentYear]);
-
+  // Filter this month's expenses for the pie chart (still need raw data for breakdown)
   const thisMonthExpenses = useMemo(() =>
-    thisMonthTransactions.filter(t => {
-      if (t.type !== 'EXPENSE') return false;
-      const category = categories.find(c => c.id === t.categoryId);
-      if (category && (category.name === 'Investment' || category.name === 'Depreciation')) {
-        return false;
-      }
-      return true;
-    }),
-    [thisMonthTransactions, categories]
-  );
-
-  const thisMonthIncomeList = useMemo(() => thisMonthTransactions.filter(t => t.type === 'INCOME'), [thisMonthTransactions]);
-
-  const allTimeExpenses = useMemo(() =>
     transactions.filter(t => {
       if (t.type !== 'EXPENSE') return false;
+      const d = parseLocalDate(t.date);
+      if (d.getMonth() !== currentMonth || d.getFullYear() !== currentYear) return false;
       const category = categories.find(c => c.id === t.categoryId);
       if (category && (category.name === 'Investment' || category.name === 'Depreciation')) {
         return false;
       }
       return true;
     }),
-    [transactions, categories]
+    [transactions, categories, currentMonth, currentYear]
   );
 
-  const allTimeIncomeList = useMemo(() => transactions.filter(t => t.type === 'INCOME'), [transactions]);
-
-  const { total: thisMonthTotal, loading: loadingThis } = useCurrencyTotal(thisMonthExpenses, settings);
-  const { total: thisMonthIncome, loading: loadingIncome } = useCurrencyTotal(thisMonthIncomeList, settings);
-  const { total: allTimeTotal, loading: loadingAllTimeExpenses } = useCurrencyTotal(allTimeExpenses, settings);
-  const { total: allTimeIncome, loading: loadingAllTimeIncome } = useCurrencyTotal(allTimeIncomeList, settings);
-
-  const calculateInvestmentValue = useCallback((investment: typeof investments[0]): number => {
-    if (investment.type === 'ASSET' && investment.purchasePrice && investment.salvageValue !== null && investment.usefulLife && investment.depreciationType) {
-      const depResult = calculateDepreciation(
-        investment.purchasePrice,
-        investment.salvageValue,
-        investment.usefulLife,
-        investment.depreciationType as 'STRAIGHT_LINE' | 'DECLINING_BALANCE',
-        investment.startDate
-      );
-      return depResult.bookValue;
-    }
-
-    if (investment.type === 'DEPOSIT' && investment.interestRate) {
-      const principal = investment.initialAmount;
-      const rate = investment.interestRate / 100;
-      const start = new Date(investment.startDate);
-      const end = investment.endDate ? new Date(investment.endDate) : new Date();
-      const years = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 365);
-      const interest = principal * rate * Math.max(0, years);
-      return principal + interest;
-    }
-
-    return investment.currentAmount ?? investment.initialAmount;
-  }, []);
-
-  const activeInvestments = useMemo(() => investments.filter(i => i.status === 'ACTIVE'), [investments]);
-
-  const financialInvestmentItems = useMemo(() => {
-    const financialInvestments = activeInvestments.filter(i => i.type !== 'ASSET');
-    return financialInvestments.map(inv => ({
-      amount: calculateInvestmentValue(inv),
-      currencyCode: inv.currencyCode
-    }));
-  }, [activeInvestments, calculateInvestmentValue]);
-
-  const { total: totalFinancialInvested, loading: loadingFinancialInvested } = useCurrencyTotal(financialInvestmentItems, settings);
-
-  const fixedAssetItems = useMemo(() => {
-    const fixedAssets = activeInvestments.filter(i => i.type === 'ASSET');
-    return fixedAssets.map(inv => ({
-      amount: calculateInvestmentValue(inv),
-      currencyCode: inv.currencyCode
-    }));
-  }, [activeInvestments, calculateInvestmentValue]);
-
-  const { total: totalFixedAssets, loading: loadingFixedAssets } = useCurrencyTotal(fixedAssetItems, settings);
-
-  const cashAccountItems = useMemo(() => {
-    const cashAccounts = accounts.filter(a => a.type !== 'INVESTMENT' && a.type !== 'ASSET');
-    return cashAccounts.map(acc => ({
-      amount: acc.currentBalance,
-      currencyCode: acc.currencyCode
-    }));
-  }, [accounts]);
-
-  const { total: totalCash, loading: loadingCash } = useCurrencyTotal(cashAccountItems, settings);
-
-  const totalNetWorth = totalCash + totalFinancialInvested + totalFixedAssets;
-
-  if (isLoading) {
+  if (isLoading || loadingSummary) {
     return <LoadingSpinner />;
   }
+
+  // Use server-calculated values
+  const totalCash = summary?.totalCash ?? 0;
+  const totalFinancialInvested = summary?.totalFinancialInvested ?? 0;
+  const totalFixedAssets = summary?.totalFixedAssets ?? 0;
+  const totalNetWorth = summary?.totalNetWorth ?? 0;
+  const thisMonthIncome = summary?.thisMonthIncome ?? 0;
+  const thisMonthTotal = summary?.thisMonthExpenses ?? 0;
+  const allTimeIncome = summary?.allTimeIncome ?? 0;
+  const allTimeTotal = summary?.allTimeExpenses ?? 0;
 
   return (
     <div className="container mx-auto p-4 md:p-8 space-y-4 md:space-y-8 bg-gray-50 dark:bg-background min-h-screen transition-colors duration-300">
@@ -181,7 +146,7 @@ export default function Dashboard() {
             allTimeIncome={allTimeIncome}
             allTimeTotal={allTimeTotal}
             settings={settings}
-            loading={loadingCash || loadingFinancialInvested}
+            loading={false}
           />
         </div>
         <div className="h-32 md:h-40">
@@ -189,14 +154,14 @@ export default function Dashboard() {
             income={thisMonthIncome}
             expenses={thisMonthTotal}
             settings={settings}
-            loading={loadingIncome || loadingThis}
+            loading={false}
           />
         </div>
         <div className="h-32 md:h-40">
           <CapitalWaterLevelCard
             totalNetWorth={totalNetWorth}
             settings={settings}
-            loading={loadingFinancialInvested || loadingFixedAssets || loadingCash}
+            loading={false}
           />
         </div>
         <div className="h-32 md:h-40">

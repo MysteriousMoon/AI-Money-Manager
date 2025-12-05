@@ -2,48 +2,52 @@
 
 import { useStore } from '@/lib/store';
 import { formatCurrency } from '@/lib/currency';
-import { calculateDepreciation } from '@/lib/depreciation';
-import { useMemo } from 'react';
-
 import { useTranslation } from '@/lib/i18n';
+import { useEffect, useState } from 'react';
+import { getDashboardSummary } from '@/app/actions/dashboard';
+
+interface AssetDetail {
+    id: string;
+    name: string;
+    startDate: string;
+    currentValue: number;
+    dailyDep: number;
+    originalCurrency: string;
+}
 
 export function AssetSummary() {
-    const { investments, settings } = useStore();
+    const { settings } = useStore();
     const { t } = useTranslation();
 
-    const assets = useMemo(() => {
-        return investments
-            .filter(i => i.type === 'ASSET' && i.status === 'ACTIVE')
-            .map(asset => {
-                // Calculate current value and daily depreciation
-                let currentValue = asset.initialAmount;
-                let dailyDep = 0;
+    const [assets, setAssets] = useState<AssetDetail[]>([]);
+    const [totalAssetValue, setTotalAssetValue] = useState(0);
+    const [loading, setLoading] = useState(true);
 
-                if (asset.purchasePrice && asset.usefulLife) {
-                    const depResult = calculateDepreciation(
-                        asset.purchasePrice,
-                        asset.salvageValue || 0,
-                        asset.usefulLife,
-                        asset.depreciationType as 'STRAIGHT_LINE' | 'DECLINING_BALANCE',
-                        asset.startDate
-                    );
-                    currentValue = depResult.bookValue;
-
-                    // Daily Dep
-                    dailyDep = (asset.purchasePrice - (asset.salvageValue || 0)) / (asset.usefulLife * 365);
+    useEffect(() => {
+        const fetchAssets = async () => {
+            setLoading(true);
+            try {
+                const response = await getDashboardSummary();
+                if (response.success && response.data) {
+                    setAssets(response.data.assetDetails);
+                    setTotalAssetValue(response.data.totalFixedAssets);
                 }
+            } catch (error) {
+                console.error('Failed to fetch assets:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchAssets();
+    }, []);
 
-                return {
-                    ...asset,
-                    currentValue,
-                    dailyDep
-                };
-            })
-            .sort((a, b) => b.currentValue - a.currentValue)
-            .slice(0, 5); // Top 5
-    }, [investments]);
-
-    const totalAssetValue = assets.reduce((sum, a) => sum + a.currentValue, 0);
+    if (loading) {
+        return (
+            <div className="h-full flex items-center justify-center">
+                <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="h-full flex flex-col">

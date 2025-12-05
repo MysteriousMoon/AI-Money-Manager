@@ -1,12 +1,13 @@
 'use server';
 
+import { prisma } from '@/lib/db';
+
 /**
  * Server-side currency exchange rate utilities
  * Uses in-memory cache with fallback to API for rate lookups
  */
 
 // Simple in-memory cache for exchange rates
-// In production, consider using Redis or database storage
 let ratesCache: {
     base: string;
     rates: Record<string, number>;
@@ -16,23 +17,40 @@ let ratesCache: {
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
+ * Get the global exchange rate API key from system settings
+ */
+async function getSystemExchangeRateApiKey(): Promise<string | undefined> {
+    try {
+        const systemSettings = await prisma.systemSettings.findUnique({
+            where: { id: 'default' }
+        });
+        return systemSettings?.exchangeRateApiKey || undefined;
+    } catch (error) {
+        // Table might not exist yet
+        return undefined;
+    }
+}
+
+/**
  * Get exchange rate from one currency to another
  * All rates are relative to USD as base
  */
 export async function getServerExchangeRate(
     fromCurrency: string,
     toCurrency: string,
-    exchangeRateApiKey?: string
+    overrideApiKey?: string // For testing purposes
 ): Promise<number> {
     if (fromCurrency === toCurrency) return 1;
 
-    const rates = await getServerRates(exchangeRateApiKey);
-    if (!rates) return 1; // Fallback to 1:1 if no rates available
+    // Get API key from system settings or use override
+    const apiKey = overrideApiKey || await getSystemExchangeRateApiKey();
+
+    const rates = await getServerRates(apiKey);
+    if (!rates) return 1;
 
     const fromRate = rates[fromCurrency] || 1;
     const toRate = rates[toCurrency] || 1;
 
-    // Cross rate calculation: Amount in FROM * (TO_rate / FROM_rate) = Amount in TO
     return toRate / fromRate;
 }
 
@@ -43,9 +61,9 @@ export async function convertAmount(
     amount: number,
     fromCurrency: string,
     toCurrency: string,
-    exchangeRateApiKey?: string
+    overrideApiKey?: string
 ): Promise<number> {
-    const rate = await getServerExchangeRate(fromCurrency, toCurrency, exchangeRateApiKey);
+    const rate = await getServerExchangeRate(fromCurrency, toCurrency, overrideApiKey);
     return amount * rate;
 }
 
@@ -67,7 +85,7 @@ async function getServerRates(apiKey?: string): Promise<Record<string, number> |
         const response = await fetch(
             `https://v6.exchangerate-api.com/v6/${apiKey}/latest/USD`,
             {
-                next: { revalidate: 86400 }, // Cache for 24 hours in Next.js
+                next: { revalidate: 86400 },
                 headers: { 'Accept': 'application/json' }
             }
         );
@@ -96,7 +114,6 @@ async function getServerRates(apiKey?: string): Promise<Record<string, number> |
 
 /**
  * Fallback exchange rates (approximate, for when API is unavailable)
- * These are rough estimates and should only be used as fallback
  */
 function getFallbackRates(): Record<string, number> {
     return {
@@ -111,4 +128,29 @@ function getFallbackRates(): Record<string, number> {
         SGD: 1.34,
         KRW: 1320,
     };
+}
+
+/**
+ * Test exchange rate API key (for admin settings page)
+ */
+export async function testExchangeRateApi(apiKey: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const response = await fetch(
+            `https://v6.exchangerate-api.com/v6/${apiKey}/latest/USD`,
+            { cache: 'no-store' }
+        );
+
+        if (!response.ok) {
+            return { success: false, error: 'API request failed' };
+        }
+
+        const data = await response.json();
+        if (data.result === 'success') {
+            return { success: true };
+        } else {
+            return { success: false, error: data['error-type'] || 'Unknown error' };
+        }
+    } catch (error) {
+        return { success: false, error: 'Network error' };
+    }
 }

@@ -5,7 +5,6 @@ import { useStore } from '@/lib/store';
 import { Save, RefreshCw, Moon, Sun, Laptop, List, ArrowRight, LogOut } from 'lucide-react';
 import { logout } from '@/app/actions/auth';
 import { fetchAIModels } from '@/app/actions/ai';
-import { getExchangeRate } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
 import { useTheme } from 'next-themes';
@@ -21,7 +20,6 @@ export default function SettingsPage() {
     const [mounted, setMounted] = useState(false);
     const [formData, setFormData] = useState(settings);
     const [isSaved, setIsSaved] = useState(false);
-    const [isLoadingRates, setIsLoadingRates] = useState(false);
     const [isLoadingModels, setIsLoadingModels] = useState(false);
     const [availableModels, setAvailableModels] = useState<string[]>([]);
 
@@ -54,19 +52,7 @@ export default function SettingsPage() {
         setTimeout(() => setIsSaved(false), 2000);
     };
 
-    const handleTestRates = async () => {
-        setIsLoadingRates(true);
-        try {
-            // Force fetch rates
-            localStorage.removeItem('expense_tracker_rates');
-            await getExchangeRate('USD', formData.currency, formData);
-            alert('Exchange rates fetched successfully!');
-        } catch (error) {
-            alert('Failed to fetch rates. Check your API Key.');
-        } finally {
-            setIsLoadingRates(false);
-        }
-    };
+
 
     return (
         <ContentContainer>
@@ -295,28 +281,7 @@ export default function SettingsPage() {
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <label htmlFor="exchangeRateApiKey" className="text-sm font-medium">{t('settings.exchange_api_key')}</label>
-                        <div className="flex gap-2">
-                            <input
-                                id="exchangeRateApiKey"
-                                name="exchangeRateApiKey"
-                                type="password"
-                                value={formData.exchangeRateApiKey}
-                                onChange={handleChange}
-                                placeholder={t('settings.exchange_key_placeholder')}
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                            />
-                            <button
-                                type="button"
-                                onClick={handleTestRates}
-                                disabled={isLoadingRates || !formData.exchangeRateApiKey}
-                                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-3"
-                            >
-                                <RefreshCw className={cn("h-4 w-4", isLoadingRates && "animate-spin")} />
-                            </button>
-                        </div>
-                    </div>
+
                 </section>
 
                 {/* Data Management */}

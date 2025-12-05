@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '@/lib/store';
 import { useTranslation } from '@/lib/i18n';
 import { Plus, Trash2, Edit2, TrendingUp, TrendingDown, PiggyBank, Wallet, Laptop } from 'lucide-react';
@@ -11,8 +11,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { PageHeader } from '@/components/ui/page-header';
 import { ContentContainer } from '@/components/ui/content-container';
 import { calculateDepreciation } from '@/lib/depreciation';
-import { useCurrencyTotal } from '@/hooks/useCurrencyTotal';
-import { useEffect } from 'react';
+import { getInvestmentSummary } from '@/app/actions/dashboard';
 
 export default function InvestmentsPage() {
     const { t } = useTranslation();
@@ -282,20 +281,30 @@ export default function InvestmentsPage() {
 
     const activeInvestments = investments.filter(i => i.status === 'ACTIVE');
 
-    // Convert all investments to currency items with proper conversion
-    const investmentItems = activeInvestments.map(inv => ({
-        amount: calculateReturn(inv).value,
-        currencyCode: inv.currencyCode
-    }));
+    // Server-side calculated totals
+    const [summary, setSummary] = useState<{ totalValue: number; totalCost: number; totalProfit: number } | null>(null);
+    const [loadingSummary, setLoadingSummary] = useState(true);
 
-    const initialCostItems = activeInvestments.map(inv => ({
-        amount: inv.initialAmount,
-        currencyCode: inv.currencyCode
-    }));
+    useEffect(() => {
+        const fetchSummary = async () => {
+            setLoadingSummary(true);
+            try {
+                const response = await getInvestmentSummary();
+                if (response.success && response.data) {
+                    setSummary(response.data);
+                }
+            } catch (error) {
+                console.error('Failed to fetch investment summary:', error);
+            } finally {
+                setLoadingSummary(false);
+            }
+        };
+        fetchSummary();
+    }, [investments]);
 
-    const { total: totalValue } = useCurrencyTotal(investmentItems, settings);
-    const { total: totalCost } = useCurrencyTotal(initialCostItems, settings);
-    const totalProfit = totalValue - totalCost;
+    const totalValue = summary?.totalValue ?? 0;
+    const totalCost = summary?.totalCost ?? 0;
+    const totalProfit = summary?.totalProfit ?? 0;
 
     if (isLoading) {
         return <LoadingSpinner />;
