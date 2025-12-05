@@ -2,40 +2,32 @@
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, Label } from 'recharts';
 import { useTranslation } from '@/lib/i18n';
-import { Transaction, Category, Settings } from '@/types';
+import { Settings } from '@/types';
 import { useMemo } from 'react';
 import { formatCurrency } from '@/lib/currency';
 
 interface ExpenseCompositionChartProps {
-    transactions: Transaction[];
-    categories: Category[];
+    // Server-calculated expense by category (already currency-converted)
+    expenseByCategory: Record<string, number>;
     settings: Settings;
 }
 
 // Cool gradient colors (blue-cyan spectrum with warm accent)
 const COLORS = ['#3b82f6', '#06b6d4', '#22d3d8', '#f59e0b', '#8b5cf6'];
 
-export function ExpenseCompositionChart({ transactions, categories, settings }: ExpenseCompositionChartProps) {
+export function ExpenseCompositionChart({ expenseByCategory, settings }: ExpenseCompositionChartProps) {
     const { t } = useTranslation();
 
     const { data, total } = useMemo(() => {
-        const expenses = transactions.filter(t => t.type === 'EXPENSE');
-        const categoryTotals: Record<string, number> = {};
-        let totalAmount = 0;
-
-        expenses.forEach(tx => {
-            const categoryName = categories.find(c => c.id === tx.categoryId)?.name || 'Other';
-            categoryTotals[categoryName] = (categoryTotals[categoryName] || 0) + tx.amount;
-            totalAmount += tx.amount;
-        });
-
-        const chartData = Object.entries(categoryTotals)
+        const chartData = Object.entries(expenseByCategory)
             .map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value)
             .slice(0, 5); // Top 5 categories
 
+        const totalAmount = chartData.reduce((sum, item) => sum + item.value, 0);
+
         return { data: chartData, total: totalAmount };
-    }, [transactions, categories]);
+    }, [expenseByCategory]);
 
     return (
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 md:p-6 shadow-sm h-full flex flex-col">
@@ -105,4 +97,3 @@ export function ExpenseCompositionChart({ transactions, categories, settings }: 
         </div>
     );
 }
-

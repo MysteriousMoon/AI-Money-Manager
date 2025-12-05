@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { useStore } from '@/lib/store';
-import { parseLocalDate } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
 import { getMeIncMetrics, getDashboardSummary } from '@/app/actions/dashboard';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -43,6 +42,7 @@ interface DashboardSummary {
     dailyDep: number;
     originalCurrency: string;
   }>;
+  expenseByCategory: Record<string, number>;
 }
 
 export default function Dashboard() {
@@ -97,20 +97,8 @@ export default function Dashboard() {
     return total / metrics.dailyBurnRate.length;
   }, [metrics]);
 
-  // Filter this month's expenses for the pie chart (still need raw data for breakdown)
-  const thisMonthExpenses = useMemo(() =>
-    transactions.filter(t => {
-      if (t.type !== 'EXPENSE') return false;
-      const d = parseLocalDate(t.date);
-      if (d.getMonth() !== currentMonth || d.getFullYear() !== currentYear) return false;
-      const category = categories.find(c => c.id === t.categoryId);
-      if (category && (category.name === 'Investment' || category.name === 'Depreciation')) {
-        return false;
-      }
-      return true;
-    }),
-    [transactions, categories, currentMonth, currentYear]
-  );
+  // Get expense by category from server data (already currency-converted)
+  const expenseByCategory = summary?.expenseByCategory ?? {};
 
   if (isLoading || loadingSummary) {
     return <LoadingSpinner />;
@@ -183,8 +171,7 @@ export default function Dashboard() {
         {/* Expense Composition (1/3 width on desktop) */}
         <div className="lg:col-span-1 h-[300px] md:h-[450px]">
           <ExpenseCompositionChart
-            transactions={thisMonthExpenses}
-            categories={categories}
+            expenseByCategory={expenseByCategory}
             settings={settings}
           />
         </div>

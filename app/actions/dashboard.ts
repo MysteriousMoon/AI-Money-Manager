@@ -96,10 +96,16 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
         const allTx = await prisma.transaction.findMany({ where: { userId } });
 
         // Calculate Current Balances with currency conversion
+        // Only include non-INVESTMENT, non-ASSET accounts for "cash" capital
         const accountBalances = new Map<string, number>();
+        const cashAccountIds = new Set<string>();
         for (const a of allAccounts) {
             const balance = await convertAmount(a.initialBalance, a.currencyCode, baseCurrency);
             accountBalances.set(a.id, balance);
+            // Track which accounts are "cash" accounts
+            if (a.type !== 'INVESTMENT' && a.type !== 'ASSET') {
+                cashAccountIds.add(a.id);
+            }
         }
 
         for (const t of allTx) {
@@ -119,8 +125,11 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
             }
         }
 
+        // Only sum cash accounts (exclude INVESTMENT and ASSET type accounts)
         let totalCurrentCapital = 0;
-        accountBalances.forEach(bal => totalCurrentCapital += bal);
+        cashAccountIds.forEach(id => {
+            totalCurrentCapital += accountBalances.get(id) || 0;
+        });
 
         // Add financial investments (exclude fixed assets)
         for (const i of allInvestments) {
@@ -288,33 +297,39 @@ export async function getDashboardSummary() {
         const monthStart = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0];
         const monthEnd = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0];
 
-        // --- Calculate Account Balances ---
+        // --- Calculate Account Balances with Currency Conversion ---
+        // Convert everything to base currency first, then calculate
         const accountBalances = new Map<string, number>();
         for (const a of accounts) {
-            accountBalances.set(a.id, a.initialBalance);
+            const convertedInitial = await convertAmount(a.initialBalance, a.currencyCode, baseCurrency);
+            accountBalances.set(a.id, convertedInitial);
         }
 
         for (const t of transactions) {
+            const convertedAmount = await convertAmount(t.amount, t.currencyCode, baseCurrency);
+
             if (t.accountId && accountBalances.has(t.accountId)) {
                 const bal = accountBalances.get(t.accountId) || 0;
-                if (t.type === 'EXPENSE') accountBalances.set(t.accountId, bal - t.amount);
-                if (t.type === 'INCOME') accountBalances.set(t.accountId, bal + t.amount);
-                if (t.type === 'TRANSFER') accountBalances.set(t.accountId, bal - t.amount);
+                if (t.type === 'EXPENSE') accountBalances.set(t.accountId, bal - convertedAmount);
+                if (t.type === 'INCOME') accountBalances.set(t.accountId, bal + convertedAmount);
+                if (t.type === 'TRANSFER') accountBalances.set(t.accountId, bal - convertedAmount);
             }
             if (t.transferToAccountId && accountBalances.has(t.transferToAccountId)) {
                 const bal = accountBalances.get(t.transferToAccountId) || 0;
-                accountBalances.set(t.transferToAccountId, bal + (t.targetAmount ?? t.amount));
+                const targetAmount = t.targetAmount ?? t.amount;
+                const convertedTarget = await convertAmount(targetAmount, t.targetCurrencyCode || t.currencyCode, baseCurrency);
+                accountBalances.set(t.transferToAccountId, bal + convertedTarget);
             }
         }
 
-        // --- Calculate Totals with Currency Conversion ---
+        // --- Calculate Totals (already in base currency) ---
 
         // 1. Cash (non-investment, non-asset accounts)
         let totalCash = 0;
         for (const a of accounts) {
             if (a.type !== 'INVESTMENT' && a.type !== 'ASSET') {
                 const balance = accountBalances.get(a.id) || 0;
-                totalCash += await convertAmount(balance, a.currencyCode, baseCurrency);
+                totalCash += balance; // Already converted to base currency
             }
         }
 
@@ -375,6 +390,20 @@ export async function getDashboardSummary() {
             }
         }
 
+        // 5. This Month Expenses by Category (for pie chart)
+        const expenseByCategory: Record<string, number> = {};
+        for (const t of transactions) {
+            const isThisMonth = t.date >= monthStart && t.date <= monthEnd;
+            const category = categories.find(c => c.id === t.categoryId);
+            const isExcluded = category && investmentCategoryNames.includes(category.name);
+
+            if (t.type === 'EXPENSE' && isThisMonth && !isExcluded) {
+                const categoryName = category?.name || 'Other';
+                const converted = await convertAmount(t.amount, t.currencyCode, baseCurrency);
+                expenseByCategory[categoryName] = (expenseByCategory[categoryName] || 0) + converted;
+            }
+        }
+
         const totalNetWorth = totalCash + totalFinancialInvested + totalFixedAssets;
 
         return {
@@ -397,7 +426,10 @@ export async function getDashboardSummary() {
             allTimeNet: allTimeIncome - allTimeExpenses,
 
             // Asset Details (for AssetSummary component)
-            assetDetails: assetDetails.sort((a, b) => b.currentValue - a.currentValue).slice(0, 5)
+            assetDetails: assetDetails.sort((a, b) => b.currentValue - a.currentValue).slice(0, 5),
+
+            // Expense by Category (for ExpenseCompositionChart, already currency-converted)
+            expenseByCategory
         };
     }, 'Failed to fetch dashboard summary');
 }
