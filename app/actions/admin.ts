@@ -3,10 +3,19 @@
 import { prisma } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from './auth';
+import { cookies } from 'next/headers';
+
+async function isAdmin() {
+    const currentUser = await getCurrentUser();
+    if (currentUser?.role === 'ADMIN') return true;
+
+    const cookieStore = await cookies();
+    const adminSession = cookieStore.get('admin_session')?.value;
+    return adminSession === 'true';
+}
 
 export async function createUser(formData: FormData) {
-    const currentUser = await getCurrentUser();
-    if (!currentUser || currentUser.role !== 'ADMIN') {
+    if (!await isAdmin()) {
         return { error: 'Unauthorized' };
     }
 
@@ -57,12 +66,12 @@ export async function createUser(formData: FormData) {
 }
 
 export async function deleteUser(userId: string) {
-    const currentUser = await getCurrentUser();
-    if (!currentUser || currentUser.role !== 'ADMIN') {
+    if (!await isAdmin()) {
         return { error: 'Unauthorized' };
     }
 
-    if (userId === currentUser.id) {
+    const currentUser = await getCurrentUser();
+    if (currentUser && userId === currentUser.id) {
         return { error: 'Cannot delete yourself' };
     }
 
@@ -80,8 +89,7 @@ export async function deleteUser(userId: string) {
 }
 
 export async function updateUser(userId: string, formData: FormData) {
-    const currentUser = await getCurrentUser();
-    if (!currentUser || currentUser.role !== 'ADMIN') {
+    if (!await isAdmin()) {
         return { error: 'Unauthorized' };
     }
 

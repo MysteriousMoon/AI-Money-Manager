@@ -15,43 +15,46 @@ import { exportTransactions } from '@/app/actions/transaction';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { PageHeader } from '@/components/ui/page-header';
 import { ContentContainer } from '@/components/ui/content-container';
-import { TransactionTable } from '@/components/transactions/TransactionTable';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { TransactionForm } from '@/components/transactions/TransactionForm';
 
 export default function TransactionsPage() {
     const { t } = useTranslation();
     const router = useRouter();
     const transactions = useStore((state) => state.transactions);
-    const updateTransaction = useStore((state) => state.updateTransaction);
     const deleteTransaction = useStore((state) => state.deleteTransaction);
     const categories = useStore((state) => state.categories);
     const accounts = useStore((state) => state.accounts);
     const isLoading = useStore((state) => state.isLoading);
+    const updateTransaction = useStore((state) => state.updateTransaction);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [editForm, setEditForm] = useState<Partial<Transaction>>({});
+    const [inlineEditingId, setInlineEditingId] = useState<string | null>(null);
     const [deleteId, setDeleteId] = useState<string | null>(null);
+    const [editForm, setEditForm] = useState<Partial<Transaction>>({});
 
     const handleEdit = (transaction: typeof transactions[0]) => {
         setEditingId(transaction.id);
+    };
+
+    const handleInlineEdit = (transaction: typeof transactions[0]) => {
+        setInlineEditingId(transaction.id);
         setEditForm({
             amount: transaction.amount,
-            currencyCode: transaction.currencyCode,
             categoryId: transaction.categoryId,
             date: transaction.date,
             merchant: transaction.merchant,
             note: transaction.note,
             type: transaction.type,
-            accountId: transaction.accountId,
-            transferToAccountId: transaction.transferToAccountId,
-            targetAmount: transaction.targetAmount,
-            targetCurrencyCode: transaction.targetCurrencyCode,
+            currencyCode: transaction.currencyCode
         });
     };
 
-    const handleUpdate = async () => {
-        if (!editingId) return;
-        await updateTransaction(editingId, editForm);
-        setEditingId(null);
-        setEditForm({});
+    const handleInlineUpdate = async () => {
+        if (inlineEditingId && editForm) {
+            await updateTransaction(inlineEditingId, editForm);
+            setInlineEditingId(null);
+            setEditForm({});
+        }
     };
 
     const handleDelete = async (id: string) => {
@@ -109,6 +112,8 @@ export default function TransactionsPage() {
         }
     };
 
+    const editingTransaction = transactions.find(t => t.id === editingId);
+
     if (isLoading) {
         return <LoadingSpinner />;
     }
@@ -136,19 +141,8 @@ export default function TransactionsPage() {
                     </div>
                 ) : (
                     <>
-                        {/* Desktop View: Data Table */}
-                        <div className="hidden md:block">
-                            <TransactionTable
-                                transactions={transactions}
-                                categories={categories}
-                                accounts={accounts}
-                                onEdit={handleEdit}
-                                onDelete={handleDeleteClick}
-                            />
-                        </div>
-
-                        {/* Mobile View: List */}
-                        <div className="md:hidden space-y-2">
+                        {/* Unified List View */}
+                        <div className="space-y-2">
                             {sortedDates.map((date) => (
                                 <div key={date} className="space-y-2">
                                     <h2 className="text-sm font-medium text-muted-foreground sticky top-0 bg-background/95 py-2 z-10 backdrop-blur-sm">
@@ -170,125 +164,137 @@ export default function TransactionsPage() {
                                     </h2>
                                     <div className="space-y-2">
                                         {groupedTransactions[date].map((transaction) => {
-                                            const isEditing = editingId === transaction.id;
+                                            if (inlineEditingId === transaction.id) {
+                                                return (
+                                                    <div key={transaction.id} className="rounded-lg border bg-card text-card-foreground shadow-sm p-4 space-y-4">
+                                                        <div className="flex justify-between items-center">
+                                                            <div className="font-medium">{t('transactions.edit')}</div>
+                                                            <button onClick={() => setInlineEditingId(null)} className="text-muted-foreground hover:text-foreground">
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div>
+                                                                <label className="text-xs font-medium text-muted-foreground">{t('add.amount')}</label>
+                                                                <input
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    value={editForm.amount || ''}
+                                                                    onChange={(e) => setEditForm({ ...editForm, amount: parseFloat(e.target.value) })}
+                                                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-xs font-medium text-muted-foreground">{t('add.category')}</label>
+                                                                <select
+                                                                    value={editForm.categoryId || ''}
+                                                                    onChange={(e) => setEditForm({ ...editForm, categoryId: e.target.value })}
+                                                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                                                >
+                                                                    {categories
+                                                                        .filter(c => c.type === (editForm.type || transaction.type))
+                                                                        .map(c => (
+                                                                            <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                                                                        ))
+                                                                    }
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div>
+                                                                <label className="text-xs font-medium text-muted-foreground">{t('add.date')}</label>
+                                                                <input
+                                                                    type="date"
+                                                                    value={editForm.date || ''}
+                                                                    onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                                                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-xs font-medium text-muted-foreground">{t('add.merchant')}</label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={editForm.merchant || ''}
+                                                                    onChange={(e) => setEditForm({ ...editForm, merchant: e.target.value })}
+                                                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs font-medium text-muted-foreground">{t('add.note')}</label>
+                                                            <input
+                                                                type="text"
+                                                                value={editForm.note || ''}
+                                                                onChange={(e) => setEditForm({ ...editForm, note: e.target.value })}
+                                                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                                            />
+                                                        </div>
+                                                        <div className="flex justify-end gap-2">
+                                                            <button
+                                                                onClick={() => setInlineEditingId(null)}
+                                                                className="px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+                                                            >
+                                                                {t('transactions.cancel_edit')}
+                                                            </button>
+                                                            <button
+                                                                onClick={handleInlineUpdate}
+                                                                className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                                                            >
+                                                                {t('transactions.update')}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
                                             return (
                                                 <div
                                                     key={transaction.id}
-                                                    className={cn(
-                                                        "rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden",
-                                                        isEditing ? "p-0" : "p-4 flex items-center justify-between"
-                                                    )}
+                                                    className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden p-4 flex items-center justify-between"
                                                 >
-                                                    {!isEditing ? (
-                                                        <>
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-lg [&_svg]:size-5">
-                                                                    {getCategoryIcon(transaction.categoryId)}
-                                                                </div>
-                                                                <div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <p className="font-medium">{transaction.merchant || getCategoryName(transaction.categoryId)}</p>
-                                                                    </div>
-                                                                    <p className="text-xs text-muted-foreground">
-                                                                        {transaction.note && <span>{transaction.note}</span>}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <div className={cn(
-                                                                    "flex items-baseline gap-0.5 font-bold mr-2",
-                                                                    transaction.type === 'EXPENSE' ? "text-red-500" : "text-green-500"
-                                                                )}>
-                                                                    <span className="text-sm">
-                                                                        {transaction.type === 'EXPENSE' ? '-' : '+'}
-                                                                        {CURRENCIES.find(c => c.code === (transaction.currencyCode || 'CNY'))?.symbol}
-                                                                    </span>
-                                                                    <span className="text-base">
-                                                                        {transaction.amount.toFixed(2)}
-                                                                    </span>
-                                                                    <span className="text-[10px] font-normal text-muted-foreground ml-1">
-                                                                        {transaction.currencyCode || 'CNY'}
-                                                                    </span>
-                                                                </div>
-                                                                <button
-                                                                    onClick={() => handleEdit(transaction)}
-                                                                    className="p-2 text-muted-foreground hover:text-primary transition-colors"
-                                                                    aria-label="Edit transaction"
-                                                                >
-                                                                    <Edit2 className="h-4 w-4" />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDeleteClick(transaction.id)}
-                                                                    className="p-2 text-muted-foreground hover:text-destructive transition-colors"
-                                                                    aria-label="Delete transaction"
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </button>
-                                                            </div>
-                                                        </>
-                                                    ) : (
-                                                        <div className="p-4 bg-muted/30 space-y-4">
-                                                            {/* Edit Form (Simplified for brevity, same as before) */}
-                                                            <div className="grid grid-cols-2 gap-3">
-                                                                <div>
-                                                                    <label className="text-xs font-medium text-muted-foreground">{t('add.amount')}</label>
-                                                                    <div className="flex gap-2">
-                                                                        <select
-                                                                            value={editForm.currencyCode}
-                                                                            onChange={(e) => setEditForm({ ...editForm, currencyCode: e.target.value })}
-                                                                            className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
-                                                                        >
-                                                                            {CURRENCIES.map((c) => (
-                                                                                <option key={c.code} value={c.code}>
-                                                                                    {c.code}
-                                                                                </option>
-                                                                            ))}
-                                                                        </select>
-                                                                        <input
-                                                                            type="number"
-                                                                            step="0.01"
-                                                                            value={editForm.amount}
-                                                                            onChange={(e) => setEditForm({ ...editForm, amount: parseFloat(e.target.value) })}
-                                                                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                                <div>
-                                                                    <label className="text-xs font-medium text-muted-foreground">{t('add.category')}</label>
-                                                                    <select
-                                                                        value={editForm.categoryId}
-                                                                        onChange={(e) => {
-                                                                            const cat = categories.find(c => c.id === e.target.value);
-                                                                            setEditForm({
-                                                                                ...editForm,
-                                                                                categoryId: e.target.value,
-                                                                                type: cat?.type as 'EXPENSE' | 'INCOME' || 'EXPENSE'
-                                                                            });
-                                                                        }}
-                                                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                                                                    >
-                                                                        {categories.map(c => (
-                                                                            <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-                                                                        ))}
-                                                                    </select>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex justify-end gap-2">
-                                                                <button
-                                                                    onClick={() => setEditingId(null)}
-                                                                    className="px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-                                                                >
-                                                                    {t('transactions.cancel_edit')}
-                                                                </button>
-                                                                <button
-                                                                    onClick={handleUpdate}
-                                                                    className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-                                                                >
-                                                                    {t('transactions.update')}
-                                                                </button>
-                                                            </div>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-lg [&_svg]:size-5">
+                                                            {getCategoryIcon(transaction.categoryId)}
                                                         </div>
-                                                    )}
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="font-medium">{transaction.merchant || getCategoryName(transaction.categoryId)}</p>
+                                                            </div>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {transaction.note && <span>{transaction.note}</span>}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={cn(
+                                                            "flex items-baseline gap-0.5 font-bold mr-2",
+                                                            transaction.type === 'EXPENSE' ? "text-red-500" : "text-green-500"
+                                                        )}>
+                                                            <span className="text-sm">
+                                                                {transaction.type === 'EXPENSE' ? '-' : '+'}
+                                                                {CURRENCIES.find(c => c.code === (transaction.currencyCode || 'CNY'))?.symbol}
+                                                            </span>
+                                                            <span className="text-base">
+                                                                {transaction.amount.toFixed(2)}
+                                                            </span>
+                                                            <span className="text-[10px] font-normal text-muted-foreground ml-1">
+                                                                {transaction.currencyCode || 'CNY'}
+                                                            </span>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleInlineEdit(transaction)}
+                                                            className="p-2 text-muted-foreground hover:text-primary transition-colors"
+                                                            aria-label="Edit transaction"
+                                                        >
+                                                            <Edit2 className="h-4 w-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteClick(transaction.id)}
+                                                            className="p-2 text-muted-foreground hover:text-destructive transition-colors"
+                                                            aria-label="Delete transaction"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             );
                                         })}
@@ -299,6 +305,24 @@ export default function TransactionsPage() {
                     </>
                 )}
             </div>
+
+            {/* Edit Modal */}
+            <Dialog open={!!editingId} onOpenChange={(open) => !open && setEditingId(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{t('transactions.edit_title') || 'Edit Transaction'}</DialogTitle>
+                    </DialogHeader>
+                    {editingTransaction && (
+                        <TransactionForm
+                            key={editingTransaction.id}
+                            mode="edit"
+                            initialData={editingTransaction}
+                            onSuccess={() => setEditingId(null)}
+                            onCancel={() => setEditingId(null)}
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
 
             {/* Delete Confirmation Modal */}
             {deleteId && (

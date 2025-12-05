@@ -197,6 +197,11 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'investments.placeholder.salvage': 'e.g. 500',
         'investments.placeholder.rate': 'e.g. 2.5',
         'investments.select_account': 'Select Account',
+        'investments.active_assets': 'Active Assets',
+        'investments.cost_basis': 'Cost Basis',
+        'investments.daily_depreciation': 'Daily Depreciation',
+        'investments.days': 'days',
+        'investments.sell': 'Sell',
 
         'recurring.update': 'Update',
         'recurring.cancel': 'Cancel',
@@ -502,6 +507,11 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'investments.rate': '预期收益率 (%)',
         'investments.depreciation_type': '折旧类型',
         'investments.select_account': '选择账户',
+        'investments.active_assets': '活跃资产',
+        'investments.cost_basis': '成本基准',
+        'investments.daily_depreciation': '日折旧',
+        'investments.days': '天',
+        'investments.sell': '卖出',
 
         'settings.title': '设置',
         'settings.desc': '配置 AI 和应用偏好。',

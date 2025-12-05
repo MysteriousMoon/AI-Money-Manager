@@ -16,9 +16,11 @@ interface TransactionFormProps {
     onSuccess?: () => void;
     onCancel?: () => void;
     initialTab?: 'manual' | 'scan' | 'transfer';
+    initialData?: Transaction;
+    mode?: 'add' | 'edit';
 }
 
-export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual' }: TransactionFormProps) {
+export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual', initialData, mode = 'add' }: TransactionFormProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [isPending, startTransition] = useTransition();
@@ -29,6 +31,7 @@ export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual' }: 
     const accounts = useStore((state) => state.accounts);
     const projects = useStore((state) => state.projects);
     const addTransaction = useStore((state) => state.addTransaction);
+    const updateTransaction = useStore((state) => state.updateTransaction);
 
     const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState<'manual' | 'scan' | 'transfer'>(initialTab);
@@ -37,32 +40,33 @@ export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual' }: 
     const isTransferMode = searchParams.get('mode') === 'transfer';
 
     // Form State (for manual entry)
-    const [amount, setAmount] = useState('');
-    const [categoryId, setCategoryId] = useState(userCategories[0]?.id || '');
-    const [accountId, setAccountId] = useState(accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
+    const [amount, setAmount] = useState(initialData?.amount.toString() || '');
+    const [categoryId, setCategoryId] = useState(initialData?.categoryId || userCategories[0]?.id || '');
+    const [accountId, setAccountId] = useState(initialData?.accountId || accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
     const [currency, setCurrency] = useState(() => {
+        if (initialData?.currencyCode) return initialData.currencyCode;
         const defaultAccount = accounts.find(a => a.isDefault) || accounts[0];
         return defaultAccount ? defaultAccount.currencyCode : settings.currency;
     });
-    const [transferToAccountId, setTransferToAccountId] = useState('');
-    const [targetAmount, setTargetAmount] = useState('');
-    const [targetCurrency, setTargetCurrency] = useState(settings.currency);
-    const [fee, setFee] = useState('');
-    const [feeCurrency, setFeeCurrency] = useState(settings.currency);
-    const [date, setDate] = useState(formatLocalDate(new Date()));
-    const [merchant, setMerchant] = useState('');
-    const [note, setNote] = useState('');
-    const [projectId, setProjectId] = useState('');
+    const [transferToAccountId, setTransferToAccountId] = useState(initialData?.transferToAccountId || '');
+    const [targetAmount, setTargetAmount] = useState(initialData?.targetAmount?.toString() || '');
+    const [targetCurrency, setTargetCurrency] = useState(initialData?.targetCurrencyCode || settings.currency);
+    const [fee, setFee] = useState(initialData?.fee?.toString() || '');
+    const [feeCurrency, setFeeCurrency] = useState(initialData?.feeCurrencyCode || settings.currency);
+    const [date, setDate] = useState(initialData?.date || formatLocalDate(new Date()));
+    const [merchant, setMerchant] = useState(initialData?.merchant || '');
+    const [note, setNote] = useState(initialData?.note || '');
+    const [projectId, setProjectId] = useState(initialData?.projectId || '');
 
-    // Sync currency with account
+    // Sync currency with account (only if not editing or if account changes)
     useEffect(() => {
-        if (accountId) {
+        if (accountId && mode === 'add') {
             const account = accounts.find(a => a.id === accountId);
             if (account) {
                 setCurrency(account.currencyCode);
             }
         }
-    }, [accountId, accounts]);
+    }, [accountId, accounts, mode]);
 
     // Scan State
     const [isScanning, setIsScanning] = useState(false);
@@ -81,8 +85,7 @@ export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual' }: 
     const handleManualSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        const newTransaction: Transaction = {
-            id: crypto.randomUUID(),
+        const transactionData: any = {
             amount: parseFloat(amount),
             currencyCode: currency,
             categoryId: activeTab === 'transfer' ? undefined : categoryId,
@@ -96,10 +99,18 @@ export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual' }: 
             merchant: activeTab === 'transfer' ? undefined : merchant,
             note,
             type: activeTab === 'transfer' ? 'TRANSFER' : (categories.find(c => c.id === categoryId)?.type as 'EXPENSE' | 'INCOME' || 'EXPENSE'),
-            source: 'MANUAL',
+            source: mode === 'edit' ? initialData?.source || 'MANUAL' : 'MANUAL',
             projectId: projectId || undefined,
         };
-        await addTransaction(newTransaction);
+
+        if (mode === 'edit' && initialData) {
+            await updateTransaction(initialData.id, transactionData);
+        } else {
+            await addTransaction({
+                ...transactionData,
+                id: crypto.randomUUID(),
+            });
+        }
 
         if (onSuccess) {
             onSuccess();

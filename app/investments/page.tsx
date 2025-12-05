@@ -331,6 +331,106 @@ export default function InvestmentsPage() {
                 </div>
             </div>
 
+            {/* Investment List */}
+            <div className="space-y-4">
+                <h3 className="text-lg font-semibold">{t('investments.active_assets')}</h3>
+                {activeInvestments.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground border rounded-lg bg-muted/10">
+                        {t('investments.empty')}
+                    </div>
+                ) : (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {activeInvestments.map((investment) => {
+                            const metrics = calculateReturn(investment);
+                            return (
+                                <div key={investment.id} className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden">
+                                    <div className="p-4 border-b bg-muted/30 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                                {investment.type === 'ASSET' ? <Laptop className="h-4 w-4" /> :
+                                                    investment.type === 'STOCK' ? <TrendingUp className="h-4 w-4" /> :
+                                                        investment.type === 'DEPOSIT' ? <PiggyBank className="h-4 w-4" /> :
+                                                            <Wallet className="h-4 w-4" />}
+                                            </div>
+                                            <div>
+                                                <div className="font-medium">{investment.name}</div>
+                                                <div className="text-xs text-muted-foreground">{t(`investments.type.${investment.type.toLowerCase()}`)}</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-1">
+                                            <button onClick={() => handleEdit(investment)} className="p-1.5 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground">
+                                                <Edit2 className="h-4 w-4" />
+                                            </button>
+                                            <button onClick={() => handleDeleteClick(investment.id)} className="p-1.5 hover:bg-destructive/10 rounded-md text-muted-foreground hover:text-destructive">
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="p-4 space-y-3">
+                                        <div className="flex justify-between items-baseline">
+                                            <span className="text-sm text-muted-foreground">{t('investments.current_value')}</span>
+                                            <span className="text-lg font-bold">
+                                                {investment.currencyCode} {metrics.value.toFixed(2)}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-baseline">
+                                            <span className="text-sm text-muted-foreground">{t('investments.cost_basis')}</span>
+                                            <span className="text-sm">
+                                                {investment.currencyCode} {(investment.purchasePrice || investment.initialAmount).toFixed(2)}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-baseline">
+                                            <span className="text-sm text-muted-foreground">{t('investments.return')}</span>
+                                            <span className={cn("text-sm font-medium", metrics.profit >= 0 ? "text-green-500" : "text-red-500")}>
+                                                {metrics.profit >= 0 ? '+' : ''}{metrics.profit.toFixed(2)} ({metrics.percent.toFixed(2)}%)
+                                            </span>
+                                        </div>
+
+                                        {/* Asset Specific Details */}
+                                        {investment.type === 'ASSET' && (
+                                            <div className="pt-2 border-t text-xs space-y-1">
+                                                <div className="flex justify-between">
+                                                    <span className="text-muted-foreground">{t('investments.daily_depreciation')}</span>
+                                                    <span>{metrics.dailyDepreciation?.toFixed(2)}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-muted-foreground">{t('investments.remaining_life')}</span>
+                                                    <span>{Math.ceil(metrics.remainingLife || 0)} {t('investments.days')}</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="pt-3 flex gap-2">
+                                            {investment.type === 'ASSET' ? (
+                                                <button
+                                                    onClick={() => handleDepreciationClick(investment)}
+                                                    className="flex-1 px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted transition-colors"
+                                                >
+                                                    {t('investments.record_depreciation')}
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleUpdateValueClick(investment)}
+                                                    className="flex-1 px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted transition-colors"
+                                                >
+                                                    {t('investments.update_value')}
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => handleRedeemClick(investment)}
+                                                className="flex-1 px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
+                                            >
+                                                {investment.type === 'ASSET' ? t('investments.sell') : t('investments.redeem')}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
             {/* Add/Edit Modal */}
             {isAdding && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

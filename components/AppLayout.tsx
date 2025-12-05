@@ -9,8 +9,9 @@ import { TransactionModal } from "@/components/transactions/TransactionModal";
 export function AppLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const isAuthPage = pathname === '/login' || pathname === '/register';
+    const isAdminPage = pathname?.startsWith('/admin');
 
-    if (isAuthPage) {
+    if (isAuthPage || isAdminPage) {
         return <main className="flex-1">{children}</main>;
     }
 
