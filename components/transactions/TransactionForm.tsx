@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useTransition } from 'react';
+import { useState, useRef, useEffect, useTransition, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { recognizeReceipt } from '@/app/actions/recognize';
@@ -58,6 +58,27 @@ export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual', in
     const [note, setNote] = useState(initialData?.note || '');
     const [projectId, setProjectId] = useState(initialData?.projectId || '');
 
+    // v3.0: Smart Context - Track if user dismissed the context banner
+    const [contextDismissed, setContextDismissed] = useState(false);
+
+    // v3.0: Detect active TRIP/EVENT project based on current date
+    const activeContextProject = useMemo(() => {
+        const today = formatLocalDate(new Date());
+        return projects.find(p =>
+            (p.type === 'TRIP' || p.type === 'EVENT') &&
+            p.status === 'ACTIVE' &&
+            p.startDate <= today &&
+            (!p.endDate || p.endDate >= today)
+        );
+    }, [projects]);
+
+    // v3.0: Auto-select project if within active trip (only for new transactions)
+    useEffect(() => {
+        if (mode === 'add' && activeContextProject && !projectId && !contextDismissed) {
+            setProjectId(activeContextProject.id);
+        }
+    }, [mode, activeContextProject, projectId, contextDismissed]);
+
     // Sync currency with account (only if not editing or if account changes)
     useEffect(() => {
         if (accountId && mode === 'add') {
@@ -77,6 +98,7 @@ export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual', in
     // Review State
     const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>([]);
     const [isReviewing, setIsReviewing] = useState(false);
+
 
     // Handle paste event for scan tab
     useEffect(() => {
@@ -375,6 +397,28 @@ export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual', in
 
     return (
         <div className="space-y-6">
+            {/* v3.0: Smart Context Banner */}
+            {activeContextProject && !contextDismissed && mode === 'add' && (
+                <div className="flex items-center justify-between gap-3 px-4 py-3 bg-project/10 dark:bg-project/20 border border-project/30 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm">
+                        <span className="text-lg">{activeContextProject.type === 'TRIP' ? '✈️' : '📅'}</span>
+                        <span>
+                            {t('add.recording_for')} <strong className="text-project">{activeContextProject.name}</strong>
+                        </span>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setContextDismissed(true);
+                            setProjectId('');
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        {t('add.record_daily')}
+                    </button>
+                </div>
+            )}
+
             <div className="flex bg-muted rounded-lg p-1 gap-1">
                 <button
                     onClick={() => setActiveTab('manual')}
@@ -399,6 +443,7 @@ export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual', in
                     {t('add.scan')}
                 </button>
             </div>
+
 
             {activeTab === 'manual' && (
                 <form onSubmit={handleManualSubmit} className="space-y-4">

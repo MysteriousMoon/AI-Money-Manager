@@ -38,6 +38,11 @@ model Transaction {
    
   // Suggested: Exclude from "Cost of Living" analytics?
   excludeFromAnalytics Boolean    @default(false)
+  
+  // v3.0: Split Transaction Support
+  splitParentId        String?    // Links to parent transaction for split attribution
+  splitParent          Transaction? @relation("SplitChildren", fields: [splitParentId], references: [id], onDelete: Cascade)
+  splitChildren        Transaction[] @relation("SplitChildren")
 
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
@@ -45,6 +50,7 @@ model Transaction {
   @@index([userId])
   @@index([accountId])
   @@index([investmentId])
+  @@index([splitParentId])
   @@map("transactions")
 }
 
@@ -138,8 +144,12 @@ model Investment {
   account       Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   startDate     String
   endDate       String?
-  status        String   @default("ACTIVE") // 'ACTIVE' | 'CLOSED'
+  status        String   @default("ACTIVE") // 'ACTIVE' | 'CLOSED' | 'WRITTEN_OFF'
   note          String?
+  
+  // v3.0: Write-off Support
+  writtenOffDate   String?  // Date when asset was written off
+  writtenOffReason String?  // Reason for write-off (e.g., "Broken", "Lost", "Obsolete")
   
   // Fixed Asset Depreciation Fields
   depreciationType       String?  // 'STRAIGHT_LINE' | 'DECLINING_BALANCE' | null

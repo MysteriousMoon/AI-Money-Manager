@@ -18,7 +18,10 @@ export interface Transaction {
     investment?: any; // Using any to avoid importing Prisma types here for now, or we can import if needed
     projectId?: string;
     excludeFromAnalytics?: boolean;
+    // v3.0: Split Transactions
+    splitParentId?: string;
 }
+
 
 export interface Category {
     id: string;

@@ -15,7 +15,7 @@ import { getInvestmentSummary } from '@/app/actions/dashboard';
 
 export default function InvestmentsPage() {
     const { t } = useTranslation();
-    const { investments, accounts, projects, addInvestment, updateInvestment, deleteInvestment, closeInvestment, recordDepreciation, isLoading, settings } = useStore();
+    const { investments, accounts, projects, addInvestment, updateInvestment, deleteInvestment, closeInvestment, writeOffInvestment, recordDepreciation, isLoading, settings } = useStore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -63,6 +63,11 @@ export default function InvestmentsPage() {
     const [depreciationId, setDepreciationId] = useState<string | null>(null);
     const [depreciationAmount, setDepreciationAmount] = useState('');
     const [depreciationDate, setDepreciationDate] = useState(formatLocalDate(new Date()));
+
+    // v3.0: Write-off State
+    const [writeOffId, setWriteOffId] = useState<string | null>(null);
+    const [writeOffDate, setWriteOffDate] = useState(formatLocalDate(new Date()));
+    const [writeOffReason, setWriteOffReason] = useState('');
 
     const resetForm = () => {
         setIsAdding(false);
@@ -231,6 +236,23 @@ export default function InvestmentsPage() {
             await recordDepreciation(depreciationId, parseFloat(depreciationAmount), depreciationDate);
             setDepreciationId(null);
             setDepreciationAmount('');
+            window.location.reload();
+        }
+    };
+
+    // v3.0: Write-off handlers
+    const handleWriteOffClick = (investment: Investment) => {
+        setWriteOffId(investment.id);
+        setWriteOffDate(formatLocalDate(new Date()));
+        setWriteOffReason('');
+    };
+
+    const handleWriteOffSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (writeOffId && writeOffReason) {
+            await writeOffInvestment(writeOffId, writeOffDate, writeOffReason);
+            setWriteOffId(null);
+            setWriteOffReason('');
             window.location.reload();
         }
     };
@@ -409,28 +431,37 @@ export default function InvestmentsPage() {
                                             </div>
                                         )}
 
-                                        <div className="pt-3 flex gap-2">
+                                        <div className="pt-3 flex gap-2 flex-wrap">
                                             {investment.type === 'ASSET' ? (
                                                 <button
                                                     onClick={() => handleDepreciationClick(investment)}
-                                                    className="flex-1 px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted transition-colors"
+                                                    className="flex-1 min-w-[80px] px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted transition-colors"
                                                 >
                                                     {t('investments.record_depreciation')}
                                                 </button>
                                             ) : (
                                                 <button
                                                     onClick={() => handleUpdateValueClick(investment)}
-                                                    className="flex-1 px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted transition-colors"
+                                                    className="flex-1 min-w-[80px] px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted transition-colors"
                                                 >
                                                     {t('investments.update_value')}
                                                 </button>
                                             )}
                                             <button
                                                 onClick={() => handleRedeemClick(investment)}
-                                                className="flex-1 px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
+                                                className="flex-1 min-w-[60px] px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
                                             >
                                                 {investment.type === 'ASSET' ? t('investments.sell') : t('investments.redeem')}
                                             </button>
+                                            {/* v3.0: Write-off button for assets */}
+                                            {investment.type === 'ASSET' && (
+                                                <button
+                                                    onClick={() => handleWriteOffClick(investment)}
+                                                    className="flex-1 min-w-[60px] px-3 py-1.5 text-xs font-medium bg-destructive/10 text-destructive rounded-md hover:bg-destructive/20 transition-colors"
+                                                >
+                                                    {t('investments.write_off')}
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -844,6 +875,61 @@ export default function InvestmentsPage() {
                                     Delete
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* v3.0: Write-off Modal */}
+            {
+                writeOffId && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                        <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-lg space-y-4 animate-in zoom-in-95">
+                            <h2 className="text-lg font-bold">{t('investments.write_off_title')}</h2>
+                            <p className="text-sm text-muted-foreground">{t('investments.write_off_desc')}</p>
+                            <form onSubmit={handleWriteOffSubmit} className="space-y-4">
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground">{t('investments.write_off_reason')}</label>
+                                    <input
+                                        required
+                                        value={writeOffReason}
+                                        onChange={(e) => setWriteOffReason(e.target.value)}
+                                        placeholder={t('investments.write_off_reason_placeholder')}
+                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                        autoFocus
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground">{t('investments.write_off_date')}</label>
+                                    <input
+                                        required
+                                        type="date"
+                                        value={writeOffDate}
+                                        onChange={(e) => setWriteOffDate(e.target.value)}
+                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                    />
+                                </div>
+
+                                <div className="rounded-md bg-destructive/10 p-3 text-xs text-destructive border border-destructive/20">
+                                    ⚠️ {t('investments.write_off_warning')}
+                                </div>
+
+                                <div className="flex justify-end gap-2 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setWriteOffId(null)}
+                                        className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                                    >
+                                        {t('investments.cancel')}
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90"
+                                    >
+                                        {t('investments.write_off_confirm')}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 )

@@ -48,6 +48,7 @@ interface AppState {
     updateInvestment: (id: string, updates: Partial<Investment>) => Promise<void>;
     deleteInvestment: (id: string) => Promise<void>;
     closeInvestment: (id: string, finalAmount: number, endDate: string, accountId?: string) => Promise<void>;
+    writeOffInvestment: (id: string, writeOffDate: string, reason: string) => Promise<void>;
     recordDepreciation: (id: string, amount: number, date: string) => Promise<void>;
 
     addAccount: (account: Omit<AccountWithBalance, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'currentBalance'>) => Promise<void>;
@@ -260,6 +261,26 @@ export const useStore = create<AppState>((set, get) => ({
     },
     recordDepreciation: async (id, amount, date) => {
         const res = await import('@/app/actions/investment').then(mod => mod.recordDepreciation(id, amount, date));
+        if (res.success) {
+            // Refresh investments and transactions
+            const invRes = await getInvestments();
+            const txRes = await getTransactions();
+
+            if (invRes.success && invRes.data) {
+                set({ investments: invRes.data });
+            }
+
+            const currentInvestments = invRes.success && invRes.data ? invRes.data : get().investments;
+
+            if (txRes.success && txRes.data) {
+                set({
+                    transactions: mapTransactions(txRes.data, currentInvestments)
+                });
+            }
+        }
+    },
+    writeOffInvestment: async (id, writeOffDate, reason) => {
+        const res = await import('@/app/actions/investment').then(mod => mod.writeOffInvestment(id, writeOffDate, reason));
         if (res.success) {
             // Refresh investments and transactions
             const invRes = await getInvestments();

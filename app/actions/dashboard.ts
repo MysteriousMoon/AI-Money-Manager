@@ -42,14 +42,19 @@ async function calculateProjectAmortization(
     // Total Cost of Project (with currency conversion)
     let totalCost = 0;
     for (const t of project.transactions) {
-        totalCost += await convertAmount(t.amount, t.currencyCode, baseCurrency);
+        const amount = await convertAmount(t.amount, t.currencyCode, baseCurrency);
+        if (t.type === 'EXPENSE') {
+            totalCost += amount;
+        } else if (t.type === 'INCOME') {
+            totalCost -= amount; // Income reduces the total cost (e.g. refunds, split reimbursements)
+        }
     }
 
     // Duration in Days
     const durationMs = endDate.getTime() - startDate.getTime();
     const durationDays = Math.max(1, Math.ceil(durationMs / (1000 * 60 * 60 * 24)) + 1);
 
-    return totalCost / durationDays;
+    return Math.max(0, totalCost / durationDays); // Ensure non-negative daily cost
 }
 
 export async function getMeIncMetrics(startDate: string, endDate: string) {

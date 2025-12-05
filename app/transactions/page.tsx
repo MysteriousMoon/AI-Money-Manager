@@ -5,18 +5,19 @@ import { useStore } from '@/lib/store';
 import { useTranslation } from '@/lib/i18n';
 import { format } from 'date-fns';
 import { zhCN, enUS } from 'date-fns/locale';
-import { Trash2, Edit2, Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Trash2, Edit2, Download, ArrowUpDown, ArrowUp, ArrowDown, Scissors, GitBranch } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Transaction } from '@/types';
 import { CURRENCIES } from '@/lib/currency';
-import { exportTransactions } from '@/app/actions/transaction';
+import { exportTransactions, splitTransaction } from '@/app/actions/transaction';
 
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { PageHeader } from '@/components/ui/page-header';
 import { ContentContainer } from '@/components/ui/content-container';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { TransactionForm } from '@/components/transactions/TransactionForm';
+import { SplitTransactionModal } from '@/components/transactions/SplitTransactionModal';
 
 type SortField = 'date' | 'amount' | 'category' | 'merchant';
 type SortDirection = 'asc' | 'desc';
@@ -35,6 +36,7 @@ export default function TransactionsPage() {
     const [inlineEditingId, setInlineEditingId] = useState<string | null>(null);
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<Partial<Transaction>>({});
+    const [splitId, setSplitId] = useState<string | null>(null);
 
     // Sorting state
     const [sortField, setSortField] = useState<SortField>('date');
@@ -114,6 +116,18 @@ export default function TransactionsPage() {
         if (!categoryId) return 'Unknown';
         const category = categories.find((c) => c.id === categoryId);
         return category?.name || 'Unknown';
+    };
+
+    // v3.0: Split transaction handler
+    const handleSplitConfirm = async (splits: { amount: number; categoryId?: string; projectId?: string; note?: string }[]) => {
+        if (!splitId) return;
+        const result = await splitTransaction(splitId, splits);
+        if (result.success) {
+            setSplitId(null);
+            window.location.reload();
+        } else {
+            throw new Error(result.error || 'Failed to split transaction');
+        }
     };
 
     // Sort transactions
@@ -360,6 +374,17 @@ export default function TransactionsPage() {
                                                 >
                                                     <Edit2 className="h-4 w-4" />
                                                 </button>
+                                                {/* v3.0: Split button - only for expenses that aren't already split */}
+                                                {transaction.type === 'EXPENSE' && !transaction.note?.includes('[SPLIT]') && (
+                                                    <button
+                                                        onClick={() => setSplitId(transaction.id)}
+                                                        className="p-1.5 text-muted-foreground hover:text-primary rounded-md hover:bg-muted transition-colors"
+                                                        aria-label="Split"
+                                                        title={t('transactions.split')}
+                                                    >
+                                                        <Scissors className="h-4 w-4" />
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={() => handleDeleteClick(transaction.id)}
                                                     className="p-1.5 text-muted-foreground hover:text-destructive rounded-md hover:bg-muted transition-colors"
@@ -522,6 +547,17 @@ export default function TransactionsPage() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* v3.0: Split Transaction Modal */}
+            {splitId && (
+                <SplitTransactionModal
+                    transaction={transactions.find(t => t.id === splitId)!}
+                    categories={categories}
+                    projects={projects}
+                    onClose={() => setSplitId(null)}
+                    onConfirm={handleSplitConfirm}
+                />
             )}
         </ContentContainer>
     );

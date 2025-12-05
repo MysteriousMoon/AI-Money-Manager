@@ -536,3 +536,115 @@ export async function closeInvestment(id: string, finalAmount: number, endDate: 
         return { success: false, error: 'Failed to close investment' };
     }
 }
+
+/**
+ * v3.0: Write off an asset (report as total loss)
+ * Used when an asset is broken, lost, or obsolete with no salvage value
+ */
+export async function writeOffInvestment(id: string, writeOffDate: string, reason: string) {
+    try {
+        const user = await getCurrentUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        const existing = await prisma.investment.findUnique({
+            where: { id },
+        });
+
+        if (!existing || existing.userId !== user.id) {
+            return { success: false, error: 'Investment not found or unauthorized' };
+        }
+
+        if (existing.status !== 'ACTIVE') {
+            return { success: false, error: 'Only active assets can be written off' };
+        }
+
+        if (existing.type !== 'ASSET') {
+            return { success: false, error: 'Write-off is only available for fixed assets' };
+        }
+
+        // Calculate remaining book value (what we're writing off)
+        const purchasePrice = existing.purchasePrice || existing.initialAmount;
+        const salvageValue = existing.salvageValue || 0;
+        const usefulLifeDays = (existing.usefulLife || 3) * 365;
+
+        const startDate = new Date(existing.startDate);
+        const writeOffDateObj = new Date(writeOffDate);
+        const daysOwned = Math.max(0, (writeOffDateObj.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        // Calculate accumulated depreciation
+        const accumulatedDepreciation = Math.min(
+            (purchasePrice - salvageValue) * (daysOwned / usefulLifeDays),
+            purchasePrice - salvageValue
+        );
+
+        // Remaining book value = Purchase Price - Accumulated Depreciation
+        const remainingBookValue = Math.max(purchasePrice - accumulatedDepreciation, salvageValue);
+
+        const updatedInvestment = await prisma.$transaction(async (tx) => {
+            // 1. Update investment status to WRITTEN_OFF
+            const updated = await tx.investment.update({
+                where: { id },
+                data: {
+                    status: 'WRITTEN_OFF',
+                    currentAmount: 0,
+                    endDate: writeOffDate,
+                    writtenOffDate: writeOffDate,
+                    writtenOffReason: reason,
+                }
+            });
+
+            // 2. Create expense transaction for the loss (remaining book value)
+            // Find or create "Asset Write-off" category
+            let category = await tx.category.findFirst({
+                where: { userId: user.id, name: 'Asset Write-off', type: 'EXPENSE' }
+            });
+            if (!category) {
+                category = await tx.category.create({
+                    data: {
+                        userId: user.id,
+                        name: 'Asset Write-off',
+                        icon: '⚠️',
+                        type: 'EXPENSE',
+                        isDefault: false
+                    }
+                });
+            }
+
+            // Find Fixed Assets account
+            const fixedAssetsAccount = await tx.account.findFirst({
+                where: { userId: user.id, name: 'Fixed Assets', type: 'ASSET' }
+            });
+
+            // Record the loss as expense
+            await tx.transaction.create({
+                data: {
+                    userId: user.id,
+                    amount: remainingBookValue,
+                    currencyCode: existing.currencyCode,
+                    categoryId: category.id,
+                    date: writeOffDate,
+                    type: 'EXPENSE',
+                    source: 'MANUAL',
+                    note: `Asset Write-off: ${existing.name} (${reason})`,
+                    merchant: 'System Write-off',
+                    investmentId: id,
+                    accountId: fixedAssetsAccount?.id,
+                    projectId: existing.projectId, // Preserve project attribution
+                }
+            });
+
+            return updated;
+        });
+
+        return {
+            success: true,
+            data: updatedInvestment,
+            lossAmount: remainingBookValue
+        };
+    } catch (error) {
+        console.error('Failed to write off investment:', error);
+        return { success: false, error: 'Failed to write off investment' };
+    }
+}

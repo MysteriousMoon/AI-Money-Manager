@@ -39,6 +39,7 @@ export async function addTransaction(transaction: Transaction) {
                 feeCurrencyCode: transaction.feeCurrencyCode,
                 projectId: transaction.projectId,
                 excludeFromAnalytics: transaction.excludeFromAnalytics,
+                splitParentId: transaction.splitParentId,
             },
         });
     }, 'Failed to add transaction');
@@ -85,6 +86,7 @@ export async function updateTransaction(id: string, updates: Partial<Transaction
                 feeCurrencyCode: updates.feeCurrencyCode,
                 projectId: updates.projectId,
                 excludeFromAnalytics: updates.excludeFromAnalytics,
+                splitParentId: updates.splitParentId,
             },
         });
     }, 'Failed to update transaction');
@@ -128,4 +130,136 @@ export async function exportTransactions() {
 
         return [headers.join(','), ...rows].join('\n');
     }, 'Failed to export transactions');
+}
+
+/**
+ * v3.0: Split a transaction into multiple child transactions
+ * Useful for splitting a single payment across different categories/projects
+ * 
+ * @param parentId - The ID of the transaction to split
+ * @param splits - Array of split definitions with amount, categoryId, projectId, and note
+ */
+export interface SplitDefinition {
+    amount: number;
+    categoryId?: string;
+    projectId?: string;
+    note?: string;
+}
+
+export async function splitTransaction(parentId: string, splits: SplitDefinition[]) {
+    return withAuth(async (userId) => {
+        // 1. Get the parent transaction
+        const parent = await prisma.transaction.findUnique({
+            where: { id: parentId },
+        });
+
+        if (!parent || parent.userId !== userId) {
+            throw new Error('Transaction not found or unauthorized');
+        }
+
+        // 2. Validate split amounts sum to parent amount
+        const totalSplitAmount = splits.reduce((sum, s) => sum + s.amount, 0);
+        const tolerance = 0.01; // Allow for rounding errors
+        if (Math.abs(totalSplitAmount - parent.amount) > tolerance) {
+            throw new Error(`Split amounts (${totalSplitAmount}) must equal parent amount (${parent.amount})`);
+        }
+
+        // 3. Check if parent already has splits
+        const existingSplits = await prisma.transaction.count({
+            where: { splitParentId: parentId }
+        });
+        if (existingSplits > 0) {
+            throw new Error('Transaction already has splits. Delete existing splits first.');
+        }
+
+        // 4. Create child transactions
+        const childTransactions = await prisma.$transaction(async (tx) => {
+            const children = [];
+            for (let i = 0; i < splits.length; i++) {
+                const split = splits[i];
+                const child = await tx.transaction.create({
+                    data: {
+                        userId: userId,
+                        amount: split.amount,
+                        currencyCode: parent.currencyCode,
+                        categoryId: split.categoryId || parent.categoryId,
+                        date: parent.date,
+                        type: parent.type,
+                        source: 'SPLIT',
+                        note: split.note || `Split ${i + 1} of ${parent.merchant || parent.note || 'transaction'}`,
+                        merchant: parent.merchant,
+                        accountId: parent.accountId,
+                        projectId: split.projectId || null,
+                        splitParentId: parentId,
+                        excludeFromAnalytics: parent.excludeFromAnalytics,
+                    }
+                });
+                children.push(child);
+            }
+
+            // 5. Mark parent as excluded from analytics (children are now tracked)
+            await tx.transaction.update({
+                where: { id: parentId },
+                data: {
+                    excludeFromAnalytics: true,
+                    note: parent.note ? `${parent.note} [SPLIT]` : '[SPLIT - see child transactions]'
+                }
+            });
+
+            return children;
+        });
+
+        return childTransactions;
+    }, 'Failed to split transaction');
+}
+
+/**
+ * v3.0: Get split children of a transaction
+ */
+export async function getSplitChildren(parentId: string) {
+    return withAuth(async (userId) => {
+        const children = await prisma.transaction.findMany({
+            where: {
+                splitParentId: parentId,
+                userId: userId,
+            },
+            orderBy: {
+                createdAt: 'asc',
+            },
+        });
+        return children;
+    }, 'Failed to get split children');
+}
+
+/**
+ * v3.0: Delete all split children and restore parent
+ */
+export async function unsplitTransaction(parentId: string) {
+    return withAuth(async (userId) => {
+        const parent = await prisma.transaction.findUnique({
+            where: { id: parentId },
+        });
+
+        if (!parent || parent.userId !== userId) {
+            throw new Error('Transaction not found or unauthorized');
+        }
+
+        await prisma.$transaction(async (tx) => {
+            // Delete all children
+            await tx.transaction.deleteMany({
+                where: { splitParentId: parentId }
+            });
+
+            // Restore parent
+            await tx.transaction.update({
+                where: { id: parentId },
+                data: {
+                    excludeFromAnalytics: false,
+                    note: parent.note?.replace(' [SPLIT]', '').replace('[SPLIT - see child transactions]', '') || null
+                }
+            });
+        });
+
+        return { success: true };
+    }, 'Failed to unsplit transaction');
 }

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { WaterfallChart } from '@/components/charts/WaterfallChart';
 
 interface ProjectStats {
     projectId: string;
@@ -318,6 +319,21 @@ export default function ProjectDetailPage() {
                             </div>
                         )}
                     </div>
+
+                    {/* v3.0: Waterfall Chart */}
+                    {(stats.totalIncome > 0 || stats.totalExpenses > 0) && (
+                        <div className="mt-4 pt-4 border-t">
+                            <h4 className="text-sm font-medium text-muted-foreground mb-2">
+                                {t('projects.pnl_breakdown') || 'P&L Breakdown'}
+                            </h4>
+                            <WaterfallChart
+                                income={stats.totalIncome}
+                                expenses={stats.totalExpenses}
+                                depreciation={stats.totalDepreciation}
+                                currencyCode={stats.baseCurrency}
+                            />
+                        </div>
+                    )}
                 </div>
             )}
 
