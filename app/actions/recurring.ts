@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { RecurringRule } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser, withAuth } from './auth';
+import { toNumber } from '@/lib/decimal';
 
 export async function getRecurringRules() {
     return withAuth(async (userId) => {
@@ -14,11 +15,11 @@ export async function getRecurringRules() {
             orderBy: { createdAt: 'desc' }
         });
 
-        // Map Prisma model to our Type
+        // Map Prisma model to our Type with Decimal conversion
         return rules.map(rule => ({
             id: rule.id,
             name: rule.name,
-            amount: rule.amount,
+            amount: toNumber(rule.amount),
             currencyCode: rule.currencyCode,
             categoryId: rule.categoryId,
             frequency: rule.frequency as RecurringRule['frequency'],

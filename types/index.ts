@@ -87,5 +87,50 @@ export interface Account {
     balance?: number; // This might be initialBalance or currentBalance depending on usage
     currencyCode: string;
     isDefault?: boolean;
+    // ...existing code...
     currentBalance: number;
 }
+
+export interface Investment {
+    id: string;
+    userId: string;
+    name: string;
+    type: string;
+    initialAmount: number;
+    currentAmount?: number | null;
+    currencyCode: string;
+    interestRate?: number | null;
+    accountId?: string | null;
+    startDate: string;
+    endDate?: string | null;
+    status: string;
+    note?: string | null;
+    // v3.0: Write-off Support
+    writtenOffDate?: string | null;
+    writtenOffReason?: string | null;
+    // Fixed Asset Depreciation Fields
+    depreciationType?: string | null;
+    usefulLife?: number | null;
+    salvageValue?: number | null;
+    purchasePrice?: number | null;
+    lastDepreciationDate?: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    projectId?: string | null;
+}
+
+export interface Project {
+    id: string;
+    userId: string;
+    name: string;
+    description?: string | null;
+    type: string;
+    status: string;
+    startDate: string;
+    endDate?: string | null;
+    totalBudget?: number | null;
+    currencyCode?: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+}
+

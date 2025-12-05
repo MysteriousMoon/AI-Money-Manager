@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { Transaction, Category, RecurringRule, AppSettings, DEFAULT_CATEGORIES, DEFAULT_SETTINGS } from '@/types';
-import { Investment, Project } from '@prisma/client';
+import { Transaction, Category, RecurringRule, AppSettings, DEFAULT_CATEGORIES, DEFAULT_SETTINGS, Investment, Project } from '@/types';
+// import { Investment, Project } from '@prisma/client'; // Removed Prisma imports
 import { getTransactions, addTransaction, deleteTransaction } from '@/app/actions/transaction';
 import { getCategories, addCategory, deleteCategory, updateCategory } from '@/app/actions/category';
 import { getSettings, updateSettings } from '@/app/actions/settings';
@@ -44,8 +44,8 @@ interface AppState {
     updateRecurringRule: (id: string, updates: Partial<RecurringRule>) => Promise<void>;
     deleteRecurringRule: (id: string) => Promise<void>;
 
-    addInvestment: (investment: Omit<Investment, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => Promise<void>;
-    updateInvestment: (id: string, updates: Partial<Investment>) => Promise<void>;
+    addInvestment: (investment: import('@/app/actions/investment').InvestmentCreateInput) => Promise<void>;
+    updateInvestment: (id: string, updates: import('@/app/actions/investment').InvestmentUpdateInput) => Promise<void>;
     deleteInvestment: (id: string) => Promise<void>;
     closeInvestment: (id: string, finalAmount: number, endDate: string, accountId?: string) => Promise<void>;
     writeOffInvestment: (id: string, writeOffDate: string, reason: string) => Promise<void>;
@@ -59,8 +59,8 @@ interface AppState {
     updateSettings: (updates: Partial<AppSettings>) => Promise<void>;
 
     // Project Actions
-    addProject: (project: Omit<Project, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => Promise<void>;
-    updateProject: (id: string, updates: Partial<Project>) => Promise<void>;
+    addProject: (project: import('@/app/actions/project').ProjectInput) => Promise<void>;
+    updateProject: (id: string, updates: Partial<import('@/app/actions/project').ProjectInput>) => Promise<void>;
     deleteProject: (id: string) => Promise<void>;
 }
 

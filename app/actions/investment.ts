@@ -3,10 +3,11 @@
 import { prisma } from '@/lib/db';
 import { Investment } from '@prisma/client';
 import { getCurrentUser, withAuth } from './auth';
+import { toNumber } from '@/lib/decimal';
 
 export async function getInvestments() {
     return withAuth(async (userId) => {
-        return await prisma.investment.findMany({
+        const investments = await prisma.investment.findMany({
             where: {
                 userId: userId,
             },
@@ -14,10 +15,42 @@ export async function getInvestments() {
                 createdAt: 'desc',
             },
         });
+
+        // Convert Decimal fields to numbers for frontend consumption
+        return investments.map(inv => ({
+            ...inv,
+            initialAmount: toNumber(inv.initialAmount),
+            currentAmount: inv.currentAmount ? toNumber(inv.currentAmount) : null,
+            interestRate: inv.interestRate ? toNumber(inv.interestRate) : null,
+            salvageValue: inv.salvageValue ? toNumber(inv.salvageValue) : null,
+            purchasePrice: inv.purchasePrice ? toNumber(inv.purchasePrice) : null,
+        }));
     }, 'Failed to fetch investments');
 }
 
-export async function addInvestment(investment: Omit<Investment, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) {
+// Frontend-compatible input type for creating investment
+export interface InvestmentCreateInput {
+    name: string;
+    type: string;
+    initialAmount: number;
+    currentAmount?: number | null;
+    currencyCode: string;
+    interestRate?: number | null;
+    accountId?: string | null;
+    startDate: string;
+    endDate?: string | null;
+    status: string;
+    note?: string | null;
+    projectId?: string | null;
+    // Asset specific
+    purchasePrice?: number | null;
+    usefulLife?: number | null;
+    salvageValue?: number | null;
+    depreciationType?: string | null;
+    lastDepreciationDate?: string | null;
+}
+
+export async function addInvestment(investment: InvestmentCreateInput) {
     return withAuth(async (userId) => {
         // 1. Find or create "Investment" category (still needed for ASSET expenses)
         let category = await prisma.category.findFirst({
@@ -170,8 +203,8 @@ export async function recordDepreciation(id: string, amount: number, date: strin
 
         // Update investment current value
         // Calculate new currentAmount properly (don't use decrement on null)
-        const currentValue = existing.currentAmount ?? existing.purchasePrice ?? existing.initialAmount;
-        const newValue = Math.max(currentValue - amount, existing.salvageValue ?? 0);
+        const currentValue = toNumber(existing.currentAmount) || toNumber(existing.purchasePrice) || toNumber(existing.initialAmount);
+        const newValue = Math.max(currentValue - amount, toNumber(existing.salvageValue));
 
         const updatedInvestment = await prisma.investment.update({
             where: { id },
@@ -233,7 +266,30 @@ export async function recordDepreciation(id: string, amount: number, date: strin
 }
 
 
-export async function updateInvestment(id: string, updates: Partial<Investment>) {
+// Frontend-compatible input type that accepts number instead of Decimal
+export interface InvestmentUpdateInput {
+    name?: string;
+    type?: string;
+    initialAmount?: number;
+    currentAmount?: number | null;
+    currencyCode?: string;
+    interestRate?: number | null;
+    accountId?: string | null;
+    startDate?: string;
+    endDate?: string | null;
+    status?: string;
+    note?: string | null;
+    writtenOffDate?: string | null;
+    writtenOffReason?: string | null;
+    depreciationType?: string | null;
+    usefulLife?: number | null;
+    salvageValue?: number | null;
+    purchasePrice?: number | null;
+    lastDepreciationDate?: string | null;
+    projectId?: string | null;
+}
+
+export async function updateInvestment(id: string, updates: InvestmentUpdateInput) {
     return withAuth(async (userId) => {
         // Verify ownership
         const existing = await prisma.investment.findUnique({
@@ -261,7 +317,6 @@ export async function updateInvestment(id: string, updates: Partial<Investment>)
                         where: {
                             investmentId: id,
                             type: 'TRANSFER',
-                            // Usually the first one is the creation one
                         },
                         orderBy: {
                             createdAt: 'asc'
@@ -446,7 +501,7 @@ export async function closeInvestment(id: string, finalAmount: number, endDate: 
                 // 1. Return Principal (Transfer)
                 // 2. Realized Gain/Loss (Income/Expense)
 
-                const principal = existing.initialAmount;
+                const principal = toNumber(existing.initialAmount);
                 const profit = finalAmount - principal;
 
                 // 1. Transfer Principal back
@@ -565,8 +620,8 @@ export async function writeOffInvestment(id: string, writeOffDate: string, reaso
         }
 
         // Calculate remaining book value (what we're writing off)
-        const purchasePrice = existing.purchasePrice || existing.initialAmount;
-        const salvageValue = existing.salvageValue || 0;
+        const purchasePrice = toNumber(existing.purchasePrice) || toNumber(existing.initialAmount);
+        const salvageValue = toNumber(existing.salvageValue);
         const usefulLifeDays = (existing.usefulLife || 3) * 365;
 
         const startDate = new Date(existing.startDate);

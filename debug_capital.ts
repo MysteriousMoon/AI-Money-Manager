@@ -2,6 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
+import { toNumber } from './lib/decimal';
 
 // Manually load .env
 const envPath = path.resolve(process.cwd(), '.env');
@@ -38,7 +39,7 @@ async function debugCapital() {
     console.log('\n--- Investments by Type ---');
     const invGroups: Record<string, number> = {};
     investments.forEach(inv => {
-        const amount = inv.currentAmount ?? inv.initialAmount ?? 0;
+        const amount = toNumber(inv.currentAmount) ?? toNumber(inv.initialAmount) ?? 0;
         invGroups[inv.type] = (invGroups[inv.type] || 0) + amount;
         console.log(`[${inv.type}] ${inv.name}: ${amount} ${inv.currencyCode}`);
     });
@@ -54,18 +55,21 @@ async function debugCapital() {
     const accGroups: Record<string, number> = {};
 
     for (const acc of accounts) {
-        let balance = acc.initialBalance;
+        let balance = toNumber(acc.initialBalance);
         // Re-calculate balance
         const accTx = allTx.filter(t => t.accountId === acc.id || t.transferToAccountId === acc.id);
         accTx.forEach(t => {
+            const txAmount = toNumber(t.amount);
+            const txTargetAmount = t.targetAmount ? toNumber(t.targetAmount) : null;
+
             if (t.accountId === acc.id) {
-                if (t.type === 'EXPENSE') balance -= t.amount;
-                if (t.type === 'INCOME') balance += t.amount;
-                if (t.type === 'TRANSFER') balance -= t.amount;
+                if (t.type === 'EXPENSE') balance -= txAmount;
+                if (t.type === 'INCOME') balance += txAmount;
+                if (t.type === 'TRANSFER') balance -= txAmount;
             }
             if (t.transferToAccountId === acc.id) {
                 if (t.type === 'TRANSFER') {
-                    balance += (t.targetAmount ?? t.amount);
+                    balance += (txTargetAmount ?? txAmount);
                 }
             }
         });
@@ -83,27 +87,27 @@ async function debugCapital() {
 
     // Check Investments
     investments.forEach(inv => {
-        const val = inv.currentAmount ?? inv.initialAmount ?? 0;
+        const val = toNumber(inv.currentAmount) ?? toNumber(inv.initialAmount) ?? 0;
         if (Math.abs(val - target) < margin) {
             console.log(`MATCH FOUND (Investment): ${inv.name} (${inv.type}) = ${val} ${inv.currencyCode}`);
         }
     });
 
     // Check Accounts
-    // We need to check calculated balance, which we did above.
-    // Let's re-iterate or just check the logs above manually, but let's automate it.
     for (const acc of accounts) {
-        let balance = acc.initialBalance;
+        let balance = toNumber(acc.initialBalance);
         const accTx = allTx.filter(t => t.accountId === acc.id || t.transferToAccountId === acc.id);
         accTx.forEach(t => {
+            const txAmount = toNumber(t.amount);
+            const txTargetAmount = t.targetAmount ? toNumber(t.targetAmount) : null;
             if (t.accountId === acc.id) {
-                if (t.type === 'EXPENSE') balance -= t.amount;
-                if (t.type === 'INCOME') balance += t.amount;
-                if (t.type === 'TRANSFER') balance -= t.amount;
+                if (t.type === 'EXPENSE') balance -= txAmount;
+                if (t.type === 'INCOME') balance += txAmount;
+                if (t.type === 'TRANSFER') balance -= txAmount;
             }
             if (t.transferToAccountId === acc.id) {
                 if (t.type === 'TRANSFER') {
-                    balance += (t.targetAmount ?? t.amount);
+                    balance += (txTargetAmount ?? txAmount);
                 }
             }
         });
@@ -114,8 +118,9 @@ async function debugCapital() {
 
     // Check Transactions
     allTx.forEach(t => {
-        if (Math.abs(t.amount - target) < margin) {
-            console.log(`MATCH FOUND (Transaction): ${t.date} ${t.type} ${t.amount} ${t.currencyCode} - ${t.note || ''}`);
+        const txAmount = toNumber(t.amount);
+        if (Math.abs(txAmount - target) < margin) {
+            console.log(`MATCH FOUND (Transaction): ${t.date} ${t.type} ${txAmount} ${t.currencyCode} - ${t.note || ''}`);
         }
     });
 

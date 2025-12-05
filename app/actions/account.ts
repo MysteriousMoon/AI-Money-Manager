@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/db';
 import { getCurrentUser, withAuth } from './auth';
+import { toNumber } from '@/lib/decimal';
 
 export interface Account {
     id: string;
@@ -37,17 +38,18 @@ async function calculateAccountBalance(accountId: string): Promise<number> {
 
     if (!account) return 0;
 
-    let balance = account.initialBalance;
+    let balance = toNumber(account.initialBalance);
 
     // Add income and subtract expenses from this account
     for (const tx of account.transactions) {
+        const amount = toNumber(tx.amount);
         if (tx.type === 'INCOME') {
-            balance += tx.amount;
+            balance += amount;
         } else if (tx.type === 'EXPENSE') {
-            balance -= tx.amount;
+            balance -= amount;
         } else if (tx.type === 'TRANSFER') {
             // Money leaving this account
-            balance -= tx.amount;
+            balance -= amount;
         }
     }
 
@@ -55,7 +57,7 @@ async function calculateAccountBalance(accountId: string): Promise<number> {
     for (const tx of account.transfersTo) {
         if (tx.type === 'TRANSFER') {
             // Use targetAmount if available (for cross-currency transfers), otherwise use amount
-            balance += tx.targetAmount ?? tx.amount;
+            balance += toNumber(tx.targetAmount) || toNumber(tx.amount);
         }
     }
 
@@ -86,10 +88,11 @@ export async function getAccounts() {
             ],
         });
 
-        // Use cached currentBalance directly - O(1) read performance
+        // Convert Decimal fields to numbers for frontend consumption
         const accountsWithBalance: AccountWithBalance[] = accounts.map((account) => ({
             ...account,
-            currentBalance: account.currentBalance,
+            initialBalance: toNumber(account.initialBalance),
+            currentBalance: toNumber(account.currentBalance),
         }));
 
         return accountsWithBalance;

@@ -4,10 +4,11 @@ import { prisma } from '@/lib/db';
 import { Transaction } from '@/types';
 import { getCurrentUser, withAuth } from './auth';
 import { recalculateAccountBalance } from './account';
+import { toNumber } from '@/lib/decimal';
 
 export async function getTransactions() {
     return withAuth(async (userId) => {
-        return await prisma.transaction.findMany({
+        const transactions = await prisma.transaction.findMany({
             where: {
                 userId: userId,
             },
@@ -15,6 +16,14 @@ export async function getTransactions() {
                 date: 'desc',
             },
         });
+
+        // Convert Decimal fields to numbers for frontend consumption
+        return transactions.map(tx => ({
+            ...tx,
+            amount: toNumber(tx.amount),
+            targetAmount: tx.targetAmount ? toNumber(tx.targetAmount) : null,
+            fee: tx.fee ? toNumber(tx.fee) : null,
+        }));
     }, 'Failed to fetch transactions');
 }
 
@@ -159,7 +168,7 @@ export async function exportTransactions() {
                 t.date,
                 t.type,
                 `"${categoryName.replace(/"/g, '""')}"`, // Escape quotes
-                t.amount.toFixed(2),
+                toNumber(t.amount).toFixed(2),
                 t.currencyCode,
                 `"${(t.merchant || '').replace(/"/g, '""')}"`,
                 `"${(t.note || '').replace(/"/g, '""')}"`,
@@ -199,8 +208,8 @@ export async function splitTransaction(parentId: string, splits: SplitDefinition
         // 2. Validate split amounts sum to parent amount
         const totalSplitAmount = splits.reduce((sum, s) => sum + s.amount, 0);
         const tolerance = 0.01; // Allow for rounding errors
-        if (Math.abs(totalSplitAmount - parent.amount) > tolerance) {
-            throw new Error(`Split amounts (${totalSplitAmount}) must equal parent amount (${parent.amount})`);
+        if (Math.abs(totalSplitAmount - toNumber(parent.amount)) > tolerance) {
+            throw new Error(`Split amounts (${totalSplitAmount}) must equal parent amount (${toNumber(parent.amount)})`);
         }
 
         // 3. Check if parent already has splits

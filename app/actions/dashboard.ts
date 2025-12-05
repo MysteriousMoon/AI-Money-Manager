@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { withAuth } from './auth';
 import { Investment, Transaction, Project } from '@prisma/client';
 import { convertAmount } from '@/lib/server-currency';
+import { toNumber } from '@/lib/decimal';
 
 // Helper to calculate depreciation for a specific day
 function calculateDailyDepreciation(asset: Investment, date: Date): number {
@@ -15,8 +16,8 @@ function calculateDailyDepreciation(asset: Investment, date: Date): number {
 
     // Simple Straight-Line Depreciation for Daily Rate
     // (Cost - Salvage) / (Useful Life Years * 365)
-    const cost = asset.purchasePrice;
-    const salvage = asset.salvageValue || 0;
+    const cost = toNumber(asset.purchasePrice);
+    const salvage = toNumber(asset.salvageValue);
     const usefulLifeYears = asset.usefulLife;
 
     if (usefulLifeYears <= 0) return 0;
@@ -42,7 +43,7 @@ async function calculateProjectAmortization(
     // Total Cost of Project (with currency conversion)
     let totalCost = 0;
     for (const t of project.transactions) {
-        const amount = await convertAmount(t.amount, t.currencyCode, baseCurrency);
+        const amount = await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
         if (t.type === 'EXPENSE') {
             totalCost += amount;
         } else if (t.type === 'INCOME') {
@@ -105,7 +106,7 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
         const accountBalances = new Map<string, number>();
         const cashAccountIds = new Set<string>();
         for (const a of allAccounts) {
-            const balance = await convertAmount(a.initialBalance, a.currencyCode, baseCurrency);
+            const balance = await convertAmount(toNumber(a.initialBalance), a.currencyCode, baseCurrency);
             accountBalances.set(a.id, balance);
             // Track which accounts are "cash" accounts
             if (a.type !== 'INVESTMENT' && a.type !== 'ASSET') {
@@ -114,7 +115,7 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
         }
 
         for (const t of allTx) {
-            const convertedAmount = await convertAmount(t.amount, t.currencyCode, baseCurrency);
+            const convertedAmount = await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
 
             if (t.accountId && accountBalances.has(t.accountId)) {
                 const bal = accountBalances.get(t.accountId) || 0;
@@ -124,7 +125,7 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
             }
             if (t.transferToAccountId && accountBalances.has(t.transferToAccountId)) {
                 const bal = accountBalances.get(t.transferToAccountId) || 0;
-                const targetAmount = t.targetAmount ?? t.amount;
+                const targetAmount = toNumber(t.targetAmount) || toNumber(t.amount);
                 const convertedTarget = await convertAmount(targetAmount, t.targetCurrencyCode || t.currencyCode, baseCurrency);
                 accountBalances.set(t.transferToAccountId, bal + convertedTarget);
             }
@@ -139,7 +140,7 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
         // Add financial investments (exclude fixed assets)
         for (const i of allInvestments) {
             if (i.type !== 'ASSET') {
-                const value = i.currentAmount ?? i.initialAmount;
+                const value = toNumber(i.currentAmount) || toNumber(i.initialAmount);
                 totalCurrentCapital += await convertAmount(value, i.currencyCode, baseCurrency);
             }
         }
@@ -151,7 +152,7 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
         for (const t of allTx) {
             const tDate = new Date(t.date);
             if (tDate >= startObj) {
-                const convertedAmount = await convertAmount(t.amount, t.currencyCode, baseCurrency);
+                const convertedAmount = await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
 
                 let change = 0;
                 if (t.type === 'INCOME') change = convertedAmount;
@@ -183,7 +184,7 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
             let dailyNetChange = 0;
 
             for (const t of dailyTx) {
-                const convertedAmount = await convertAmount(t.amount, t.currencyCode, baseCurrency);
+                const convertedAmount = await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
 
                 if (t.type === 'INCOME') dailyIncome += convertedAmount;
                 if (t.type === 'EXPENSE') dailyExpense += convertedAmount;
@@ -206,7 +207,7 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
             );
             let ordinaryCost = 0;
             for (const t of ordinaryTx) {
-                ordinaryCost += await convertAmount(t.amount, t.currencyCode, baseCurrency);
+                ordinaryCost += await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
             }
 
             // Asset Depreciation (already in asset's currency, convert to base)
@@ -256,15 +257,15 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
 // Helper to calculate book value for an asset
 function calculateAssetBookValue(asset: Investment): number {
     if (!asset.purchasePrice || !asset.usefulLife || !asset.startDate) {
-        return asset.currentAmount ?? asset.initialAmount;
+        return toNumber(asset.currentAmount) || toNumber(asset.initialAmount);
     }
 
     const startDate = new Date(asset.startDate);
     const now = new Date();
     const daysOwned = Math.max(0, (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
-    const cost = asset.purchasePrice;
-    const salvage = asset.salvageValue || 0;
+    const cost = toNumber(asset.purchasePrice);
+    const salvage = toNumber(asset.salvageValue);
     const usefulLifeDays = asset.usefulLife * 365;
 
     const totalDepreciation = Math.min(
@@ -306,12 +307,12 @@ export async function getDashboardSummary() {
         // Convert everything to base currency first, then calculate
         const accountBalances = new Map<string, number>();
         for (const a of accounts) {
-            const convertedInitial = await convertAmount(a.initialBalance, a.currencyCode, baseCurrency);
+            const convertedInitial = await convertAmount(toNumber(a.initialBalance), a.currencyCode, baseCurrency);
             accountBalances.set(a.id, convertedInitial);
         }
 
         for (const t of transactions) {
-            const convertedAmount = await convertAmount(t.amount, t.currencyCode, baseCurrency);
+            const convertedAmount = await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
 
             if (t.accountId && accountBalances.has(t.accountId)) {
                 const bal = accountBalances.get(t.accountId) || 0;
@@ -321,7 +322,7 @@ export async function getDashboardSummary() {
             }
             if (t.transferToAccountId && accountBalances.has(t.transferToAccountId)) {
                 const bal = accountBalances.get(t.transferToAccountId) || 0;
-                const targetAmount = t.targetAmount ?? t.amount;
+                const targetAmount = toNumber(t.targetAmount) || toNumber(t.amount);
                 const convertedTarget = await convertAmount(targetAmount, t.targetCurrencyCode || t.currencyCode, baseCurrency);
                 accountBalances.set(t.transferToAccountId, bal + convertedTarget);
             }
@@ -341,7 +342,7 @@ export async function getDashboardSummary() {
         // 2. Financial Investments (non-ASSET)
         let totalFinancialInvested = 0;
         for (const inv of investments.filter(i => i.type !== 'ASSET')) {
-            const value = inv.currentAmount ?? inv.initialAmount;
+            const value = toNumber(inv.currentAmount) || toNumber(inv.initialAmount);
             totalFinancialInvested += await convertAmount(value, inv.currencyCode, baseCurrency);
         }
 
@@ -355,8 +356,8 @@ export async function getDashboardSummary() {
 
             // Daily depreciation
             let dailyDep = 0;
-            if (asset.purchasePrice && asset.usefulLife) {
-                dailyDep = (asset.purchasePrice - (asset.salvageValue || 0)) / (asset.usefulLife * 365);
+            if (toNumber(asset.purchasePrice) && asset.usefulLife) {
+                dailyDep = (toNumber(asset.purchasePrice) - toNumber(asset.salvageValue)) / (asset.usefulLife * 365);
             }
             const convertedDailyDep = await convertAmount(dailyDep, asset.currencyCode, baseCurrency);
 
@@ -383,13 +384,13 @@ export async function getDashboardSummary() {
             const isExcluded = category && investmentCategoryNames.includes(category.name);
 
             if (t.type === 'EXPENSE' && !isExcluded) {
-                const converted = await convertAmount(t.amount, t.currencyCode, baseCurrency);
+                const converted = await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
                 allTimeExpenses += converted;
                 if (isThisMonth) thisMonthExpenses += converted;
             }
 
             if (t.type === 'INCOME') {
-                const converted = await convertAmount(t.amount, t.currencyCode, baseCurrency);
+                const converted = await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
                 allTimeIncome += converted;
                 if (isThisMonth) thisMonthIncome += converted;
             }
@@ -404,7 +405,7 @@ export async function getDashboardSummary() {
 
             if (t.type === 'EXPENSE' && isThisMonth && !isExcluded) {
                 const categoryName = category?.name || 'Other';
-                const converted = await convertAmount(t.amount, t.currencyCode, baseCurrency);
+                const converted = await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
                 expenseByCategory[categoryName] = (expenseByCategory[categoryName] || 0) + converted;
             }
         }
@@ -458,7 +459,7 @@ export async function getInvestmentSummary() {
 
         for (const inv of investments) {
             const value = calculateAssetBookValue(inv);
-            const cost = inv.purchasePrice || inv.initialAmount;
+            const cost = toNumber(inv.purchasePrice) || toNumber(inv.initialAmount);
 
             totalValue += await convertAmount(value, inv.currencyCode, baseCurrency);
             totalCost += await convertAmount(cost, inv.currencyCode, baseCurrency);

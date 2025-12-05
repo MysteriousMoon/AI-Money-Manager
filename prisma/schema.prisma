@@ -13,7 +13,7 @@ model Transaction {
   id                  String      @id @default(uuid())
   userId              String
   user                User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount              Float
+  amount              Decimal
   currencyCode        String      @default("CNY")
   categoryId          String?
   date                String      // Storing as ISO string YYYY-MM-DD for simplicity, or DateTime
@@ -25,9 +25,9 @@ model Transaction {
   account             Account?    @relation("AccountTransactions", fields: [accountId], references: [id], onDelete: SetNull)
   transferToAccountId String?     // For TRANSFER type: destination account
   transferToAccount   Account?    @relation("TransferToAccount", fields: [transferToAccountId], references: [id], onDelete: SetNull)
-  targetAmount        Float?      // For transfers with currency exchange
+  targetAmount        Decimal?    // For transfers with currency exchange
   targetCurrencyCode  String?     // For transfers with currency exchange
-  fee                 Float?      // Transaction fee
+  fee                 Decimal?    // Transaction fee
   feeCurrencyCode     String?     // Currency for the fee
   investmentId        String?     // Optional: linked investment for tracking
   investment          Investment? @relation(fields: [investmentId], references: [id], onDelete: Cascade)
@@ -74,7 +74,7 @@ model RecurringRule {
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name         String
-  amount       Float
+  amount       Decimal
   currencyCode String   @default("CNY")
   categoryId   String
   merchant     String?
@@ -136,10 +136,10 @@ model Investment {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name          String
   type          String   // 'STOCK' | 'DEPOSIT' | 'FUND' | 'ASSET' | 'OTHER'
-  initialAmount Float
-  currentAmount Float?   // For tracking market value
+  initialAmount Decimal
+  currentAmount Decimal? // For tracking market value
   currencyCode  String   @default("CNY")
-  interestRate  Float?   // For deposits (e.g., 2.5 for 2.5%)
+  interestRate  Decimal? // For deposits (e.g., 2.5 for 2.5%)
   accountId     String?
   account       Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   startDate     String
@@ -154,8 +154,8 @@ model Investment {
   // Fixed Asset Depreciation Fields
   depreciationType       String?  // 'STRAIGHT_LINE' | 'DECLINING_BALANCE' | null
   usefulLife             Int?     // Useful life in years
-  salvageValue           Float?   // Salvage value (residual value)
-  purchasePrice          Float?   // For fixed assets
+  salvageValue           Decimal? // Salvage value (residual value)
+  purchasePrice          Decimal? // For fixed assets
   lastDepreciationDate String? // Date of last recorded depreciation
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -175,8 +175,8 @@ model Account {
   user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   name                  String
   type                  String          // 'BANK' | 'DIGITAL_WALLET' | 'CASH' | 'CREDIT_CARD' | 'INVESTMENT' | 'OTHER'
-  initialBalance        Float           @default(0)
-  currentBalance        Float           @default(0)
+  initialBalance        Decimal         @default(0)
+  currentBalance        Decimal         @default(0)
   currencyCode          String          @default("CNY")
   color                 String?         // For UI distinction (e.g., #FF5733)
   icon                  String?         // Emoji or icon identifier
@@ -204,7 +204,7 @@ model Project {
   startDate   String    // ISO Date YYYY-MM-DD
   endDate     String?   // Jobs might not have an end date, but trips do
    
-  totalBudget Float?    // Budget (Optional)
+  totalBudget Decimal?  // Budget (Optional)
    
   // Relations
   transactions Transaction[]

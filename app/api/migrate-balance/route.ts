@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/app/actions/auth';
+import { toNumber } from '@/lib/decimal';
 
 /**
  * One-time migration endpoint to populate currentBalance for all accounts
@@ -18,17 +19,18 @@ async function calculateAccountBalance(accountId: string): Promise<number> {
 
     if (!account) return 0;
 
-    let balance = account.initialBalance;
+    let balance = toNumber(account.initialBalance);
 
     // Add income and subtract expenses from this account
     for (const tx of account.transactions) {
+        const amount = toNumber(tx.amount);
         if (tx.type === 'INCOME') {
-            balance += tx.amount;
+            balance += amount;
         } else if (tx.type === 'EXPENSE') {
-            balance -= tx.amount;
+            balance -= amount;
         } else if (tx.type === 'TRANSFER') {
             // Money leaving this account
-            balance -= tx.amount;
+            balance -= amount;
         }
     }
 
@@ -36,7 +38,7 @@ async function calculateAccountBalance(accountId: string): Promise<number> {
     for (const tx of account.transfersTo) {
         if (tx.type === 'TRANSFER') {
             // Use targetAmount if available (for cross-currency transfers), otherwise use amount
-            balance += tx.targetAmount ?? tx.amount;
+            balance += toNumber(tx.targetAmount) || toNumber(tx.amount);
         }
     }
 
@@ -67,7 +69,7 @@ export async function POST() {
             const calculatedBalance = await calculateAccountBalance(account.id);
 
             // Check if balance needs update
-            if (Math.abs(account.currentBalance - calculatedBalance) > 0.01) {
+            if (Math.abs(toNumber(account.currentBalance) - calculatedBalance) > 0.01) {
                 await prisma.account.update({
                     where: { id: account.id },
                     data: { currentBalance: calculatedBalance },
@@ -75,7 +77,7 @@ export async function POST() {
                 results.push({
                     name: account.name,
                     type: account.type,
-                    oldBalance: account.currentBalance,
+                    oldBalance: toNumber(account.currentBalance),
                     newBalance: calculatedBalance,
                     updated: true,
                 });
@@ -83,7 +85,7 @@ export async function POST() {
                 results.push({
                     name: account.name,
                     type: account.type,
-                    oldBalance: account.currentBalance,
+                    oldBalance: toNumber(account.currentBalance),
                     newBalance: calculatedBalance,
                     updated: false,
                 });

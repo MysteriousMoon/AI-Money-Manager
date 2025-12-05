@@ -3,8 +3,7 @@
 import { useState, useMemo } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
-import { Transaction, Category } from '@/types';
-import { Project } from '@prisma/client';
+import { Transaction, Category, Project } from '@/types';
 import { cn } from '@/lib/utils';
 
 interface SplitItem {

@@ -28,6 +28,10 @@ if (fs.existsSync(envPath)) {
 
 const prisma = new PrismaClient();
 
+import { toNumber } from '../lib/decimal';
+
+// ...
+
 async function calculateAccountBalance(accountId: string): Promise<number> {
     const account = await prisma.account.findUnique({
         where: { id: accountId },
@@ -39,17 +43,18 @@ async function calculateAccountBalance(accountId: string): Promise<number> {
 
     if (!account) return 0;
 
-    let balance = account.initialBalance;
+    let balance = toNumber(account.initialBalance);
 
     // Add income and subtract expenses from this account
     for (const tx of account.transactions) {
+        const amount = toNumber(tx.amount);
         if (tx.type === 'INCOME') {
-            balance += tx.amount;
+            balance += amount;
         } else if (tx.type === 'EXPENSE') {
-            balance -= tx.amount;
+            balance -= amount;
         } else if (tx.type === 'TRANSFER') {
             // Money leaving this account
-            balance -= tx.amount;
+            balance -= amount;
         }
     }
 
@@ -57,7 +62,8 @@ async function calculateAccountBalance(accountId: string): Promise<number> {
     for (const tx of account.transfersTo) {
         if (tx.type === 'TRANSFER') {
             // Use targetAmount if available (for cross-currency transfers), otherwise use amount
-            balance += tx.targetAmount ?? tx.amount;
+            const targetAmount = tx.targetAmount ? toNumber(tx.targetAmount) : null;
+            balance += targetAmount ?? toNumber(tx.amount);
         }
     }
 
@@ -78,16 +84,17 @@ async function main() {
 
     for (const account of accounts) {
         const calculatedBalance = await calculateAccountBalance(account.id);
+        const currentBalance = toNumber(account.currentBalance);
 
         // Check if balance needs update
-        if (Math.abs(account.currentBalance - calculatedBalance) > 0.01) {
+        if (Math.abs(currentBalance - calculatedBalance) > 0.01) {
             await prisma.account.update({
                 where: { id: account.id },
                 data: { currentBalance: calculatedBalance },
             });
             console.log(`✓ Updated: ${account.name} (${account.type})`);
-            console.log(`  Initial: ${account.initialBalance} ${account.currencyCode}`);
-            console.log(`  Old Balance: ${account.currentBalance}`);
+            console.log(`  Initial: ${toNumber(account.initialBalance)} ${account.currencyCode}`);
+            console.log(`  Old Balance: ${currentBalance}`);
             console.log(`  New Balance: ${calculatedBalance}\n`);
             updated++;
         } else {

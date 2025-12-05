@@ -5,7 +5,7 @@ import { useStore } from '@/lib/store';
 import { useTranslation } from '@/lib/i18n';
 import { Plus, Trash2, Edit2, TrendingUp, TrendingDown, PiggyBank, Wallet, Laptop } from 'lucide-react';
 import { cn, formatLocalDate } from '@/lib/utils';
-import { Investment } from '@prisma/client';
+import { Investment } from '@/types';
 import { CURRENCIES } from '@/lib/currency';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { PageHeader } from '@/components/ui/page-header';
@@ -261,9 +261,9 @@ export default function InvestmentsPage() {
         // Handle ASSET type with depreciation
         if (investment.type === 'ASSET' && investment.purchasePrice && investment.salvageValue !== null && investment.usefulLife && investment.depreciationType) {
             const depResult = calculateDepreciation(
-                investment.purchasePrice,
-                investment.salvageValue,
-                investment.usefulLife,
+                investment.purchasePrice ?? 0,
+                investment.salvageValue ?? 0,
+                investment.usefulLife ?? 0,
                 investment.depreciationType as 'STRAIGHT_LINE' | 'DECLINING_BALANCE',
                 investment.startDate
             );

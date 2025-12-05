@@ -3,10 +3,11 @@
 import { prisma } from '@/lib/db';
 import { Project } from '@prisma/client';
 import { withAuth } from './auth';
+import { toNumber } from '@/lib/decimal';
 
 export async function getProjects() {
     return withAuth(async (userId) => {
-        return await prisma.project.findMany({
+        const projects = await prisma.project.findMany({
             where: {
                 userId: userId,
             },
@@ -19,10 +20,28 @@ export async function getProjects() {
                 }
             }
         });
+
+        // Convert Decimal fields to numbers for frontend consumption
+        return projects.map(p => ({
+            ...p,
+            totalBudget: p.totalBudget ? toNumber(p.totalBudget) : null,
+        }));
     }, 'Failed to fetch projects');
 }
 
-export async function createProject(data: Omit<Project, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) {
+// Frontend-compatible input type
+export interface ProjectInput {
+    name: string;
+    description?: string | null;
+    status: string;
+    type: string;
+    startDate: string;
+    endDate?: string | null;
+    totalBudget?: number | null;
+    currencyCode?: string | null;
+}
+
+export async function createProject(data: ProjectInput) {
     return withAuth(async (userId) => {
         return await prisma.project.create({
             data: {
@@ -33,7 +52,7 @@ export async function createProject(data: Omit<Project, 'id' | 'userId' | 'creat
     }, 'Failed to create project');
 }
 
-export async function updateProject(id: string, data: Partial<Project>) {
+export async function updateProject(id: string, data: Partial<ProjectInput>) {
     return withAuth(async (userId) => {
         const existing = await prisma.project.findUnique({
             where: { id },
@@ -119,25 +138,25 @@ export async function getProjectStats(id: string) {
         // Calculate expenses with currency conversion
         let expenses = 0;
         for (const t of project.transactions.filter(t => t.type === 'EXPENSE')) {
-            expenses += await convertAmount(t.amount, t.currencyCode, baseCurrency);
+            expenses += await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
         }
 
         // Calculate income with currency conversion
         let income = 0;
         for (const t of project.transactions.filter(t => t.type === 'INCOME')) {
-            income += await convertAmount(t.amount, t.currencyCode, baseCurrency);
+            income += await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
         }
 
         // Calculate transfers (usually same currency, but convert anyway)
         let transfers = 0;
         for (const t of project.transactions.filter(t => t.type === 'TRANSFER')) {
-            transfers += await convertAmount(t.amount, t.currencyCode, baseCurrency);
+            transfers += await convertAmount(toNumber(t.amount), t.currencyCode, baseCurrency);
         }
 
         // Calculate depreciation from linked assets with currency conversion
         let depreciation = 0;
         for (const i of project.investments.filter(i => i.type === 'ASSET' && i.purchasePrice && i.currentAmount)) {
-            const depreciationAmount = (i.purchasePrice || 0) - (i.currentAmount || 0);
+            const depreciationAmount = toNumber(i.purchasePrice) - toNumber(i.currentAmount);
             depreciation += await convertAmount(depreciationAmount, i.currencyCode, baseCurrency);
         }
 
@@ -164,8 +183,9 @@ export async function getProjectStats(id: string) {
         }
 
         // Budget utilization (budget is assumed to be in base currency)
-        const budgetUtilization = project.totalBudget
-            ? (expenses / project.totalBudget) * 100
+        const budget = toNumber(project.totalBudget);
+        const budgetUtilization = budget
+            ? (expenses / budget) * 100
             : null;
 
         return {
@@ -185,9 +205,9 @@ export async function getProjectStats(id: string) {
             assetCount: project.investments.length,
 
             // Budget
-            budget: project.totalBudget,
+            budget: budget,
             budgetUtilization,
-            budgetRemaining: project.totalBudget ? project.totalBudget - expenses : null,
+            budgetRemaining: budget ? budget - expenses : null,
 
             // Amortization (for TRIP/EVENT)
             projectDays,
