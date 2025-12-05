@@ -36,30 +36,30 @@ export function Navbar() {
         setIsDropdownOpen(false);
     }, [pathname]);
 
-    // 交互优化：点击导航栏外部时关闭下拉菜单
-    // 关键修复：只监听导航栏外的点击，避免干扰导航栏内的点击事件
+    // 交互优化：点击下拉菜单外部时关闭菜单
+    // 关键修复：使用 mousedown 而非 touchstart，避免干扰 Link 组件的点击事件
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+        if (!isDropdownOpen) return;
+
+        const handleClickOutside = (event: MouseEvent) => {
             const target = event.target as Node;
-            // 只有在点击导航栏外部时才关闭下拉菜单
-            if (navRef.current && !navRef.current.contains(target)) {
+            // 只有在点击下拉菜单组件外部时才关闭
+            if (dropdownRef.current && !dropdownRef.current.contains(target)) {
                 setIsDropdownOpen(false);
             }
         };
 
-        if (isDropdownOpen) {
-            // 使用 setTimeout 延迟添加事件监听器，避免立即触发
-            const timeoutId = setTimeout(() => {
-                document.addEventListener('mousedown', handleClickOutside);
-                document.addEventListener('touchstart', handleClickOutside, { passive: true });
-            }, 0);
+        // 使用 mousedown 事件，不使用 touchstart
+        // touchstart 会在 click 之前触发，干扰 Link 导航
+        // 延迟添加监听器，避免打开菜单的点击事件立即关闭菜单
+        const timeoutId = setTimeout(() => {
+            document.addEventListener('mousedown', handleClickOutside);
+        }, 10);
 
-            return () => {
-                clearTimeout(timeoutId);
-                document.removeEventListener('mousedown', handleClickOutside);
-                document.removeEventListener('touchstart', handleClickOutside);
-            };
-        }
+        return () => {
+            clearTimeout(timeoutId);
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
     }, [isDropdownOpen]);
 
     if (pathname === '/login' || pathname === '/register' || isLoading) {
