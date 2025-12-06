@@ -8,21 +8,23 @@ import { useTranslation } from '@/lib/i18n';
 
 interface SurvivalChartProps {
     data: any[];
+    runwayMonths?: number;  // Pre-calculated from backend
+    currentCapital?: number;
 }
 
-export function SurvivalChart({ data }: SurvivalChartProps) {
+export function SurvivalChart({ data, runwayMonths: preCalculatedRunway, currentCapital: preCalculatedCapital }: SurvivalChartProps) {
     const { settings } = useStore();
 
     const { t } = useTranslation();
 
-    // Calculate KPI: Cash Runway
-    // Based on last 3 months average burn rate (or available data)
-    // Here we use the data passed in (which is the selected range)
-    const totalBurn = data.reduce((sum, d) => sum + d.totalBurn, 0);
-    const avgDailyBurn = totalBurn / (data.length || 1);
-    const currentCapital = data[data.length - 1]?.capitalLevel || 0;
-    const runwayDays = avgDailyBurn > 0 ? currentCapital / avgDailyBurn : 0;
-    const runwayMonths = runwayDays / 30;
+    // Use pre-calculated values from backend if available, otherwise calculate locally (backwards compat)
+    const currentCapital = preCalculatedCapital ?? data[data.length - 1]?.capitalLevel ?? 0;
+    const runwayMonths = preCalculatedRunway ?? (() => {
+        const totalCashBurn = data.reduce((sum, d) => sum + (d.cashBurn || 0), 0);
+        const avgDailyBurn = totalCashBurn / (data.length || 1);
+        const runwayDays = avgDailyBurn > 0 ? currentCapital / avgDailyBurn : 0;
+        return runwayDays / 30;
+    })();
 
     return (
         <div className="h-full flex flex-col">

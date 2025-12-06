@@ -275,12 +275,18 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
             currentCapital += (dailyIncome - dailyExpense);
 
             // Ordinary Expenses (excludes project-linked, investment-linked, and recurring-sourced)
-            // Used for "Burn Rate" calculation
+            // Used for "Burn Rate" calculation in LifestyleChart
             // Note: Exclude source === 'RECURRING' to avoid double-counting with recurringCost
             let ordinaryCost = 0;
+            // Cash Burn: All actual expenses excluding project-linked (for runway calculation)
+            // Includes recurring transactions since they represent actual cash outflow
+            let cashBurn = 0;
             for (const t of dailyTx) {
-                if (t.type === 'EXPENSE' && !t.projectId && !t.investmentId && t.source !== 'RECURRING') {
-                    ordinaryCost += toBase(toNumber(t.amount), t.currencyCode);
+                if (t.type === 'EXPENSE' && !t.projectId && !t.investmentId) {
+                    cashBurn += toBase(toNumber(t.amount), t.currencyCode);
+                    if (t.source !== 'RECURRING') {
+                        ordinaryCost += toBase(toNumber(t.amount), t.currencyCode);
+                    }
                 }
             }
 
@@ -309,6 +315,7 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
                 depreciationCost,
                 projectCost,
                 recurringCost,
+                cashBurn, // For runway calculation: actual cash expenses (excludes project-linked)
                 totalBurn: ordinaryCost + depreciationCost + projectCost + recurringCost,
                 netProfit: dailyIncome - (ordinaryCost + depreciationCost + projectCost + recurringCost)
             });
@@ -355,7 +362,15 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
             })),
             // Asset data for AssetSummary component
             assetDetails: assetDetails.sort((a, b) => b.currentValue - a.currentValue),
-            totalFixedAssets
+            totalFixedAssets,
+            // Pre-calculated runway metrics (so frontend doesn't need to recalculate)
+            avgDailyCashBurn: dailyData.reduce((sum, d) => sum + d.cashBurn, 0) / (dailyData.length || 1),
+            runwayMonths: (() => {
+                const totalCashBurn = dailyData.reduce((sum, d) => sum + d.cashBurn, 0);
+                const avgDaily = totalCashBurn / (dailyData.length || 1);
+                const runwayDays = avgDaily > 0 ? totalCurrentCapital / avgDaily : 0;
+                return runwayDays / 30;
+            })()
         };
 
     }, 'Failed to fetch Me Inc. metrics');

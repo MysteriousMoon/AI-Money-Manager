@@ -61,7 +61,7 @@ export default function Dashboard() {
                 {/* Row 1: The Daily Pulse (Hero) */}
                 <div className="col-span-1 md:col-span-6 lg:col-span-6 h-[300px] bg-card border rounded-2xl p-6 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
                     <div className="absolute top-0 right-0 p-24 bg-emerald-500/5 rounded-full -mr-12 -mt-12 blur-3xl pointer-events-none" />
-                    {loadingMetrics ? <LoadingSpinner /> : <SurvivalChart data={metrics?.dailySeries || []} />}
+                    {loadingMetrics ? <LoadingSpinner /> : <SurvivalChart data={metrics?.dailySeries || []} runwayMonths={metrics?.runwayMonths} currentCapital={metrics?.currentCapital} />}
                 </div>
 
                 <div className="col-span-1 md:col-span-6 lg:col-span-6 h-[300px] bg-card border rounded-2xl p-6 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
