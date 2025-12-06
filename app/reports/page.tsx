@@ -5,6 +5,7 @@ import { useStore } from '@/lib/store';
 
 import { useTranslation } from '@/lib/i18n';
 import { getMeIncMetrics } from '@/app/actions/dashboard';
+import { formatLocalDate } from '@/lib/utils';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { SurvivalChart } from '@/components/dashboard/SurvivalChart';
 import { LifestyleChart } from '@/components/dashboard/LifestyleChart';
@@ -25,9 +26,9 @@ export default function Dashboard() {
         const fetchMetrics = async () => {
             setLoadingMetrics(true);
             const now = new Date();
-            // Fetch last 30 days for charts
-            const startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()).toISOString().split('T')[0];
-            const endDate = now.toISOString().split('T')[0];
+            // Fetch last 30 days for charts using local dates
+            const startDate = formatLocalDate(new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()));
+            const endDate = formatLocalDate(now);
 
             try {
                 const response = await getMeIncMetrics(startDate, endDate);

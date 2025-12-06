@@ -32,13 +32,24 @@ function calculateProjectAmortization(
     date: Date,
     toBase: (amount: number, currency: string) => number
 ): number {
-    // All project types with start/end dates are amortized
+    // Need both start and end dates for amortization
     if (!project.startDate || !project.endDate) return 0;
 
     const startDate = new Date(project.startDate);
     const endDate = new Date(project.endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    if (date < startDate || date > endDate) return 0;
+    // If project already ended, no more amortization
+    if (date > endDate) return 0;
+
+    // For future projects with existing transactions (e.g., deposits):
+    // Amortize from today to project end date
+    // For current/past projects: use normal project date range
+    const effectiveStartDate = startDate > today ? today : startDate;
+
+    // If current date is before effective start, return 0
+    if (date < effectiveStartDate) return 0;
 
     // Total Cost of Project (with currency conversion)
     let totalCost = 0;
@@ -51,8 +62,8 @@ function calculateProjectAmortization(
         }
     }
 
-    // Duration in Days
-    const durationMs = endDate.getTime() - startDate.getTime();
+    // Duration in Days (from effective start to end)
+    const durationMs = endDate.getTime() - effectiveStartDate.getTime();
     const durationDays = Math.max(1, Math.ceil(durationMs / (1000 * 60 * 60 * 24)) + 1);
 
     return Math.max(0, totalCost / durationDays);
@@ -98,12 +109,12 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
             where: { userId, type: 'ASSET', status: 'ACTIVE' }
         });
 
-        // Projects for amortization (all types with date ranges)
+        // Projects for amortization (include future projects with end date >= query start)
+        // Future projects with existing transactions (deposits) will be amortized from today
         const projects = await prisma.project.findMany({
             where: {
                 userId,
-                startDate: { lte: endDate },
-                endDate: { gte: startDate }
+                endDate: { gte: startDate }  // Include any project ending on or after query start
             },
             include: { transactions: true }
         });

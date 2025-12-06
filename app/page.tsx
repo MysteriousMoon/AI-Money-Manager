@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { useStore } from '@/lib/store';
 import { useTranslation } from '@/lib/i18n';
 import { getMeIncMetrics, getDashboardSummary } from '@/app/actions/dashboard';
+import { formatLocalDate } from '@/lib/utils';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 // Widgets
@@ -74,9 +75,9 @@ export default function Dashboard() {
           setSummary(summaryResponse.data);
         }
 
-        // Fetch metrics for burn rate
-        const startDate = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0];
-        const endDate = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0];
+        // Fetch metrics for burn rate using local dates
+        const startDate = formatLocalDate(new Date(currentYear, currentMonth, 1));
+        const endDate = formatLocalDate(new Date(currentYear, currentMonth + 1, 0));
         const metricsResponse = await getMeIncMetrics(startDate, endDate);
         if (metricsResponse.success && metricsResponse.data) {
           setMetrics(metricsResponse.data);
