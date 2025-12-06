@@ -42,7 +42,7 @@ export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual', in
     // Form State (for manual entry)
     const [amount, setAmount] = useState(initialData?.amount.toString() || '');
     const [categoryId, setCategoryId] = useState(initialData?.categoryId || userCategories[0]?.id || '');
-    const [accountId, setAccountId] = useState(initialData?.accountId || accounts.find(a => a.isDefault)?.id || accounts[0]?.id || '');
+    const [accountId, setAccountId] = useState(initialData?.accountId || accounts.find(a => a.isDefault && a.type !== 'ASSET')?.id || accounts.find(a => a.type !== 'ASSET')?.id || '');
     const [currency, setCurrency] = useState(() => {
         if (initialData?.currencyCode) return initialData.currencyCode;
         const defaultAccount = accounts.find(a => a.isDefault) || accounts[0];
@@ -498,9 +498,11 @@ export function TransactionForm({ onSuccess, onCancel, initialTab = 'manual', in
                                 onChange={(e) => setAccountId(e.target.value)}
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                             >
-                                {accounts.map((a) => (
-                                    <option key={a.id} value={a.id}>{a.name}</option>
-                                ))}
+                                {accounts
+                                    .filter((a) => a.type !== 'ASSET')
+                                    .map((a) => (
+                                        <option key={a.id} value={a.id}>{a.name}</option>
+                                    ))}
                             </select>
                         </div>
 
