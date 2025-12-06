@@ -22,7 +22,6 @@ services:
     container_name: accounting_app
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-accounting}
-      NEXT_PUBLIC_API_URL: http://localhost:3000
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
 
     ports:
