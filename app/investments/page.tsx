@@ -111,6 +111,7 @@ export default function InvestmentsPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
         const investmentData: any = {
             name,
             type,
@@ -131,13 +132,22 @@ export default function InvestmentsPage() {
             depreciationType: type === 'ASSET' ? depreciationType : null,
         };
 
-        if (editingId) {
-            await updateInvestment(editingId, investmentData);
-        } else {
-            await addInvestment(investmentData);
+        console.log('📦 Submitting investment data:', investmentData);
+
+        try {
+            if (editingId) {
+                await updateInvestment(editingId, investmentData);
+                console.log('✅ Investment updated successfully');
+            } else {
+                await addInvestment(investmentData);
+                console.log('✅ Investment added successfully');
+            }
+            resetForm();
+            window.location.reload();
+        } catch (error) {
+            console.error('❌ Failed to add/update investment:', error);
+            alert('添加投资失败: ' + (error instanceof Error ? error.message : String(error)));
         }
-        resetForm();
-        window.location.reload();
     };
 
     const handleDelete = async (id: string) => {

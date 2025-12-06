@@ -18,4 +18,7 @@ docker exec $CONTAINER_NAME psql -U $DB_USER -d $DB_NAME -c "DROP SCHEMA public 
 # Restore backup
 docker exec -i $CONTAINER_NAME psql -U $DB_USER -d $DB_NAME < "$1"
 
+echo "Syncing database schema with Prisma..."
+npx prisma db push --accept-data-loss 2>/dev/null || npx prisma db push
+
 echo "Done!"

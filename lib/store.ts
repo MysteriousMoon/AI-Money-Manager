@@ -178,8 +178,16 @@ export const useStore = create<AppState>((set, get) => ({
 
     // Investment Actions
     addInvestment: async (investment) => {
+        console.log('📦 Store: calling addInvestment server action', investment);
         const res = await import('@/app/actions/investment').then(mod => mod.addInvestment(investment));
-        if (res.success && res.data) {
+        console.log('📦 Store: addInvestment response', res);
+
+        if (!res.success) {
+            console.error('❌ Store: addInvestment failed', res.error);
+            throw new Error(res.error || 'Failed to add investment');
+        }
+
+        if (res.data) {
             // Re-fetch investments and transactions
             const invRes = await getInvestments();
             const txRes = await getTransactions();
