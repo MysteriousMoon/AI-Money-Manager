@@ -79,6 +79,7 @@ export function LifestyleChart({ data }: LifestyleChartProps) {
 
                         {/* Stacked Bars */}
                         <Bar dataKey="ordinaryCost" name={t('dashboard.living')} stackId="a" fill="#3b82f6" radius={[0, 0, 4, 4]} />
+                        <Bar dataKey="recurringCost" name={t('dashboard.recurring')} stackId="a" fill="#8b5cf6" />
                         <Bar dataKey="depreciationCost" name={t('dashboard.depreciation')} stackId="a" fill="hsl(var(--accrual))" />
                         <Bar dataKey="projectCost" name={t('dashboard.project')} stackId="a" fill="hsl(var(--project))" radius={[4, 4, 0, 0]} />
                     </BarChart>

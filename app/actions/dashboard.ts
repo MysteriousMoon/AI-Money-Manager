@@ -108,6 +108,38 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
             include: { transactions: true }
         });
 
+        // Recurring rules for daily amortization
+        const recurringRules = await prisma.recurringRule.findMany({
+            where: { userId, isActive: true }
+        });
+
+        // Helper to calculate daily amortized cost from recurring rules
+        const calculateRecurringDailyCost = (): number => {
+            let totalDailyCost = 0;
+            for (const rule of recurringRules) {
+                const amount = toBase(toNumber(rule.amount), rule.currencyCode);
+                let dailyAmount = 0;
+                switch (rule.frequency) {
+                    case 'DAILY':
+                        dailyAmount = amount * (rule.interval || 1);
+                        break;
+                    case 'WEEKLY':
+                        dailyAmount = amount / (7 * (rule.interval || 1));
+                        break;
+                    case 'MONTHLY':
+                        dailyAmount = amount / (30 * (rule.interval || 1));
+                        break;
+                    case 'YEARLY':
+                        dailyAmount = amount / (365 * (rule.interval || 1));
+                        break;
+                }
+                totalDailyCost += dailyAmount;
+            }
+            return totalDailyCost;
+        };
+
+        const dailyRecurringCost = calculateRecurringDailyCost();
+
         // 3. Calculate "Current Capital" (Today) from Account Balances
         let totalCurrentCapital = 0;
         for (const a of allAccounts) {
@@ -253,6 +285,9 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
                 projectCost += calculateProjectAmortization(project, currentDate, toBase);
             }
 
+            // Recurring cost is same every day
+            const recurringCost = dailyRecurringCost;
+
             dailyData.push({
                 date: dateStr,
                 capitalLevel: currentCapital,
@@ -261,8 +296,9 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
                 ordinaryCost,
                 depreciationCost,
                 projectCost,
-                totalBurn: ordinaryCost + depreciationCost + projectCost,
-                netProfit: dailyIncome - (ordinaryCost + depreciationCost + projectCost)
+                recurringCost,
+                totalBurn: ordinaryCost + depreciationCost + projectCost + recurringCost,
+                netProfit: dailyIncome - (ordinaryCost + depreciationCost + projectCost + recurringCost)
             });
 
             currentDate.setDate(currentDate.getDate() + 1);
@@ -277,6 +313,7 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
                 ordinaryCost: d.ordinaryCost,
                 depreciationCost: d.depreciationCost,
                 projectCost: d.projectCost,
+                recurringCost: d.recurringCost,
                 totalDailyCost: d.totalBurn
             }))
         };
