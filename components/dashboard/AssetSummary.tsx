@@ -3,8 +3,6 @@
 import { useStore } from '@/lib/store';
 import { formatCurrency } from '@/lib/currency';
 import { useTranslation } from '@/lib/i18n';
-import { useEffect, useState } from 'react';
-import { getDashboardSummary } from '@/app/actions/dashboard';
 
 interface AssetDetail {
     id: string;
@@ -15,31 +13,15 @@ interface AssetDetail {
     originalCurrency: string;
 }
 
-export function AssetSummary() {
+interface AssetSummaryProps {
+    assets?: AssetDetail[];
+    totalAssetValue?: number;
+    loading?: boolean;
+}
+
+export function AssetSummary({ assets = [], totalAssetValue = 0, loading = false }: AssetSummaryProps) {
     const { settings } = useStore();
     const { t } = useTranslation();
-
-    const [assets, setAssets] = useState<AssetDetail[]>([]);
-    const [totalAssetValue, setTotalAssetValue] = useState(0);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchAssets = async () => {
-            setLoading(true);
-            try {
-                const response = await getDashboardSummary();
-                if (response.success && response.data) {
-                    setAssets(response.data.assetDetails);
-                    setTotalAssetValue(response.data.totalFixedAssets);
-                }
-            } catch (error) {
-                console.error('Failed to fetch assets:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchAssets();
-    }, []);
 
     if (loading) {
         return (

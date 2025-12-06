@@ -75,7 +75,11 @@ export default function Dashboard() {
                 </div>
 
                 <div className="col-span-1 md:col-span-12 lg:col-span-4 h-[400px] bg-card border rounded-2xl p-6 shadow-sm hover:shadow-md transition-all">
-                    <AssetSummary />
+                    <AssetSummary
+                        assets={metrics?.assetDetails || []}
+                        totalAssetValue={metrics?.totalFixedAssets || 0}
+                        loading={loadingMetrics}
+                    />
                 </div>
 
                 {/* Row 3: Mission Control */}

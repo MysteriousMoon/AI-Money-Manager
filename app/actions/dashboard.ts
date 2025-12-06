@@ -316,6 +316,31 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
             currentDate.setDate(currentDate.getDate() + 1);
         }
 
+        // Calculate asset details for AssetSummary (avoid duplicate fetching)
+        let totalFixedAssets = 0;
+        const assetDetails = [];
+        for (const asset of assets) {
+            const bookValue = calculateAssetBookValue(asset);
+            const convertedValue = toBase(bookValue, asset.currencyCode);
+            totalFixedAssets += convertedValue;
+
+            // Daily depreciation
+            let dailyDep = 0;
+            if (toNumber(asset.purchasePrice) && asset.usefulLife) {
+                dailyDep = (toNumber(asset.purchasePrice) - toNumber(asset.salvageValue)) / (asset.usefulLife * 365);
+            }
+            const convertedDailyDep = toBase(dailyDep, asset.currencyCode);
+
+            assetDetails.push({
+                id: asset.id,
+                name: asset.name,
+                startDate: asset.startDate,
+                currentValue: convertedValue,
+                dailyDep: convertedDailyDep,
+                originalCurrency: asset.currencyCode
+            });
+        }
+
         return {
             dailySeries: dailyData,
             currentCapital: totalCurrentCapital,
@@ -327,7 +352,10 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
                 projectCost: d.projectCost,
                 recurringCost: d.recurringCost,
                 totalDailyCost: d.totalBurn
-            }))
+            })),
+            // Asset data for AssetSummary component
+            assetDetails: assetDetails.sort((a, b) => b.currentValue - a.currentValue),
+            totalFixedAssets
         };
 
     }, 'Failed to fetch Me Inc. metrics');
