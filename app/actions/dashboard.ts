@@ -152,22 +152,14 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
         const dailyRecurringCost = calculateRecurringDailyCost();
 
         // 3. Calculate "Current Capital" (Today) from Account Balances
+        // Sum ALL accounts (including Fixed Assets)
         let totalCurrentCapital = 0;
         for (const a of allAccounts) {
-            // Only sum cash accounts (exclude INVESTMENT and ASSET)
-            if (a.type !== 'INVESTMENT' && a.type !== 'ASSET') {
-                totalCurrentCapital += toBase(toNumber(a.currentBalance), a.currencyCode);
-            }
+            totalCurrentCapital += toBase(toNumber(a.currentBalance), a.currencyCode);
         }
 
-        // Add financial investments (exclude fixed assets)
-        const activeInvestments = await prisma.investment.findMany({ where: { userId, status: 'ACTIVE' } });
-        for (const i of activeInvestments) {
-            if (i.type !== 'ASSET') {
-                const value = toNumber(i.currentAmount) || toNumber(i.initialAmount);
-                totalCurrentCapital += toBase(value, i.currencyCode);
-            }
-        }
+        // Note: All account balances already reflect transferred amounts
+        // so we don't need to separately add from Investment table.
 
         // 4. Calculate Capital at Start Date (Backwards Calculation)
         // Logic: CapitalAtStart = CurrentCapital - NetChange(Start -> Now)
