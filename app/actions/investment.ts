@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { Investment } from '@prisma/client';
 import { getCurrentUser, withAuth } from './auth';
 import { toNumber } from '@/lib/decimal';
+import { recalculateAccountBalance } from './account';
 
 export async function getInvestments() {
     return withAuth(async (userId) => {
@@ -184,6 +185,27 @@ export async function addInvestment(investment: InvestmentCreateInput) {
 
             return createdInvestment;
         });
+
+        // Sync account balances after creating transfer
+        if (investment.accountId) {
+            await recalculateAccountBalance(investment.accountId);
+        }
+
+        // Recalculate destination account balance
+        if (investment.type === 'ASSET') {
+            // Find Fixed Assets account and recalculate
+            const fixedAssetsAccount = await prisma.account.findFirst({
+                where: { userId: userId, name: 'Fixed Assets', type: 'ASSET' }
+            });
+            if (fixedAssetsAccount) {
+                await recalculateAccountBalance(fixedAssetsAccount.id);
+            }
+        } else {
+            // Recalculate Investment Portfolio account
+            if (investmentAccount) {
+                await recalculateAccountBalance(investmentAccount.id);
+            }
+        }
 
         return newInvestment;
     }, 'Failed to add investment');
