@@ -86,11 +86,17 @@ model RecurringRule {
   lastRunDate  String?
   nextRunDate  String
   isActive     Boolean  @default(true)
+  
+  // New: Project Attribution
+  projectId    String?
+  project      Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@index([userId])
   @@index([accountId])
+  @@index([projectId])
   @@map("recurring_rules")
 }
 
@@ -209,6 +215,7 @@ model Project {
   // Relations
   transactions Transaction[]
   investments  Investment[]  // Linked Assets (e.g., equipment bought specifically for this project)
+  recurringRules RecurringRule[] // Linked Recurring Rules
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
