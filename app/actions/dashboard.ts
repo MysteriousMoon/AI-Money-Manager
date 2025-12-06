@@ -86,11 +86,11 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
         // Fetch accounts for current balance
         const allAccounts = await prisma.account.findMany({ where: { userId } });
 
-        // Fetch transactions from Start Date until NOW (to unwind current balance)
+        // Fetch transactions only within the requested date range
         const relevantTransactions = await prisma.transaction.findMany({
             where: {
                 userId,
-                date: { gte: startDate }, // Only fetch history needed for the window + unwinding
+                date: { gte: startDate, lte: endDate },
             }
         });
 
@@ -263,11 +263,12 @@ export async function getMeIncMetrics(startDate: string, endDate: string) {
             // Yes, if Net Change = Income - Expense (where Expense includes Asset purchases).
             currentCapital += (dailyIncome - dailyExpense);
 
-            // Ordinary Expenses (excludes project-linked and investment-linked)
+            // Ordinary Expenses (excludes project-linked, investment-linked, and recurring-sourced)
             // Used for "Burn Rate" calculation
+            // Note: Exclude source === 'RECURRING' to avoid double-counting with recurringCost
             let ordinaryCost = 0;
             for (const t of dailyTx) {
-                if (t.type === 'EXPENSE' && !t.projectId && !t.investmentId) {
+                if (t.type === 'EXPENSE' && !t.projectId && !t.investmentId && t.source !== 'RECURRING') {
                     ordinaryCost += toBase(toNumber(t.amount), t.currencyCode);
                 }
             }
