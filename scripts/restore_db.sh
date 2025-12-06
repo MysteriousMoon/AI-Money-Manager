@@ -83,7 +83,7 @@ extract_schema_info() {
     local in_model=false
     
     TABLES=()
-    declare -gA TABLE_COLUMNS
+    # declare -A TABLE_COLUMNS (Bash 3.2 不支持 associative arrays，使用 dynamic variables 代替)
     
     while IFS= read -r line; do
         # 检测 model 开始
@@ -91,7 +91,8 @@ extract_schema_info() {
             current_model="${BASH_REMATCH[1]}"
             current_table=$(echo "$current_model" | sed 's/\([A-Z]\)/_\L\1/g' | sed 's/^_//' | tr '[:upper:]' '[:lower:]')s
             in_model=true
-            TABLE_COLUMNS["$current_table"]=""
+            # TABLE_COLUMNS["$current_table"]=""
+            eval "TABLE_COLUMNS_${current_table}=''"
             continue
         fi
         
@@ -100,8 +101,12 @@ extract_schema_info() {
             # 更新表名为 @@map 指定的值
             local old_table="$current_table"
             current_table="${BASH_REMATCH[1]}"
-            TABLE_COLUMNS["$current_table"]="${TABLE_COLUMNS[$old_table]}"
-            unset TABLE_COLUMNS["$old_table"]
+            # TABLE_COLUMNS["$current_table"]="${TABLE_COLUMNS[$old_table]}"
+            # unset TABLE_COLUMNS["$old_table"]
+            local old_val
+            old_val=$(eval echo "\$TABLE_COLUMNS_${old_table}")
+            eval "TABLE_COLUMNS_${current_table}='$old_val'"
+            unset TABLE_COLUMNS_${old_table}
         fi
         
         # 检测列定义 (简化的列名提取)
@@ -109,17 +114,23 @@ extract_schema_info() {
             local col_name="${BASH_REMATCH[1]}"
             # 排除关键字和关系字段
             if [[ ! $col_name =~ ^(@@|model|enum)$ ]]; then
-                if [[ -n "${TABLE_COLUMNS[$current_table]}" ]]; then
-                    TABLE_COLUMNS["$current_table"]="${TABLE_COLUMNS[$current_table]},$col_name"
+                local current_val
+                current_val=$(eval echo "\$TABLE_COLUMNS_${current_table}")
+                if [[ -n "$current_val" ]]; then
+                    # TABLE_COLUMNS["$current_table"]="${TABLE_COLUMNS[$current_table]},$col_name"
+                    eval "TABLE_COLUMNS_${current_table}='${current_val},$col_name'"
                 else
-                    TABLE_COLUMNS["$current_table"]="$col_name"
+                    # TABLE_COLUMNS["$current_table"]="$col_name"
+                    eval "TABLE_COLUMNS_${current_table}='$col_name'"
                 fi
             fi
         fi
         
         # 检测 model 结束
         if [[ $in_model == true && $line =~ ^\} ]]; then
-            if [[ -n "$current_table" && -n "${TABLE_COLUMNS[$current_table]}" ]]; then
+            local has_cols
+            has_cols=$(eval echo "\$TABLE_COLUMNS_${current_table}")
+            if [[ -n "$current_table" && -n "$has_cols" ]]; then
                 TABLES+=("$current_table")
             fi
             in_model=false
@@ -153,7 +164,9 @@ validate_schema() {
         ((found_tables++))
         
         # 检查必要的列是否存在
-        IFS=',' read -ra COLUMNS <<< "${TABLE_COLUMNS[$table]}"
+        local col_str
+        col_str=$(eval echo "\$TABLE_COLUMNS_${table}")
+        IFS=',' read -ra COLUMNS <<< "$col_str"
         for col in "${COLUMNS[@]}"; do
             # 跳过关系字段（通常以小写字母开头且没有对应的数据库列）
             # 通过检查是否有 @relation 装饰器来判断（简化处理：跳过关系字段名）
