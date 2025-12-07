@@ -374,6 +374,45 @@ export async function deleteInvestment(id: string) {
             return { success: false, error: 'Investment not found or unauthorized' };
         }
 
+        // 0. 收集受影响的账户 ID，以便在删除后重新计算余额
+        const accountIdsToUpdate = new Set<string>();
+
+        // 查找直接关联的交易
+        const relatedTransactions = await prisma.transaction.findMany({
+            where: {
+                userId: user.id,
+                investmentId: id
+            },
+            select: { accountId: true, transferToAccountId: true }
+        });
+
+        relatedTransactions.forEach(tx => {
+            if (tx.accountId) accountIdsToUpdate.add(tx.accountId);
+            if (tx.transferToAccountId) accountIdsToUpdate.add(tx.transferToAccountId);
+        });
+
+        // 查找可能存在的未关联交易（遗留逻辑）
+        if (existing.initialAmount) {
+            const unlinkedTransactions = await prisma.transaction.findMany({
+                where: {
+                    userId: user.id,
+                    investmentId: null, // 仅删除未关联的
+                    amount: existing.initialAmount, // 匹配金额
+                    OR: [
+                        { note: { contains: existing.name } },
+                        { note: `Investment: ${existing.name}` },
+                        { note: `Asset Acquisition: ${existing.name}` }
+                    ]
+                },
+                select: { accountId: true, transferToAccountId: true }
+            });
+
+            unlinkedTransactions.forEach(tx => {
+                if (tx.accountId) accountIdsToUpdate.add(tx.accountId);
+                if (tx.transferToAccountId) accountIdsToUpdate.add(tx.transferToAccountId);
+            });
+        }
+
         // 使用事务原子性地删除投资和相关交易
         await prisma.$transaction(async (tx) => {
             // 1. 删除明确关联的交易
@@ -385,7 +424,6 @@ export async function deleteInvestment(id: string) {
             });
 
             // 2. 尝试查找并删除未关联的交易（遗留数据或错误数据）
-            // 专门针对初始创建交易
             if (existing.initialAmount) {
                 await tx.transaction.deleteMany({
                     where: {
@@ -406,6 +444,13 @@ export async function deleteInvestment(id: string) {
                 where: { id },
             });
         });
+
+        // 3. 重新计算受影响账户的余额
+        // 注意：这是在事务之外进行的，因为我们需要在余额更新可见之前让删除提交
+        // 虽然理论上在事务内也可以，但在事务结束时计算更安全，确保数据一致性
+        for (const accountId of accountIdsToUpdate) {
+            await recalculateAccountBalance(accountId);
+        }
 
         return { success: true };
     } catch (error) {
