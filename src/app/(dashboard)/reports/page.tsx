@@ -26,8 +26,8 @@ export default function Dashboard() {
         const fetchMetrics = async () => {
             setLoadingMetrics(true);
             const now = new Date();
-            // 获取最近30天的数据用于图表展示
-            const startDate = formatLocalDate(new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()));
+            // Fetch 1 year of data to support 3M, YTD, and Yearly views
+            const startDate = formatLocalDate(new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()));
             const endDate = formatLocalDate(now);
 
             try {

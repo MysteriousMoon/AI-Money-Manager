@@ -294,6 +294,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'settings.language': 'Language',
         'settings.exchange_api_key': 'Exchange Rate API Key',
         'settings.manage_categories': 'Manage Categories',
+        'settings.manage_categories_desc': 'Add, edit, or delete transaction categories',
         'settings.save': 'Save Settings',
         'settings.saved': 'Saved!',
         'settings.account_preferences': 'Account Preferences',
@@ -332,7 +333,6 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'transactions.view_splits': 'View Splits',
 
         'settings.data_management': 'Data Management',
-        'settings.manage_categories_desc': 'Edit, add, or remove transaction categories',
         'settings.sign_out': 'Sign Out',
 
         'auth.login': 'Log In',
@@ -346,6 +346,15 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'auth.name_label': 'Full Name',
         'auth.creating_account': 'Creating account...',
         'auth.already_have_account': 'Already have an account?',
+
+        // Investment Types
+        'settings.manage_investment_types': 'Investment Types',
+        'settings.manage_investment_types_desc': 'Customize your investment portfolio types',
+        'settings.add_investment_type': 'Add Investment Type',
+        'settings.type_name': 'Type Name',
+        'settings.logic_category': 'Behavior Logic',
+        'settings.logic_category_desc': 'Determines how the system treats this investment.',
+        'settings.delete_type_confirm': 'Are you sure you want to delete this type?',
 
         'transactions.edit': 'Edit Transaction',
         'transactions.update': 'Update',
@@ -670,6 +679,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'settings.language': '语言',
         'settings.exchange_api_key': '汇率 API Key',
         'settings.manage_categories': '管理分类',
+        'settings.manage_categories_desc': '添加、编辑或删除交易分类',
         'settings.save': '保存设置',
         'settings.saved': '已保存！',
         'settings.account_preferences': '账户偏好',
@@ -680,10 +690,7 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'settings.theme.light': '浅色',
         'settings.theme.dark': '深色',
         'settings.theme.system': '跟随系统',
-        'settings.api_key_help': '存储在本地浏览器中。',
-        'settings.exchange_key_placeholder': 'ExchangeRate-API Key',
         'settings.data_management': '数据管理',
-        'settings.manage_categories_desc': '编辑、添加或删除交易分类',
         'settings.sign_out': '退出登录',
 
         'auth.login': '登录',
@@ -751,6 +758,15 @@ const dictionaries: Record<Language, Record<string, string>> = {
         'accounts.type.credit_card': '信用卡',
         'accounts.type.investment': '投资账户',
         'accounts.type.other': '其他',
+
+        // Investment Types
+        'settings.manage_investment_types': '投资类型管理',
+        'settings.manage_investment_types_desc': '自定义您的投资组合类型',
+        'settings.add_investment_type': '新增投资类型',
+        'settings.type_name': '类型名称',
+        'settings.logic_category': '行为逻辑',
+        'settings.logic_category_desc': '决定系统如何处理此投资。',
+        'settings.delete_type_confirm': '确定要删除此类型吗？',
     }
 };
 

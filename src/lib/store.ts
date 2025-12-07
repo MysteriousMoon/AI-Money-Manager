@@ -8,6 +8,7 @@ import { getRecurringRules, addRecurringRule, updateRecurringRule, deleteRecurri
 import { getInvestments } from '@/app/actions/investment';
 import { getAccounts, createAccount, updateAccount, deleteAccount, type AccountWithBalance } from '@/app/actions/account';
 import { getProjects, createProject, updateProject, deleteProject } from '@/app/actions/project';
+import { getInvestmentTypes, addInvestmentType, deleteInvestmentType, updateInvestmentType } from '@/app/actions/investment-type';
 
 // 辅助函数：将原始交易数据映射为带有投资关联的 Transaction 类型
 function mapTransactions(rawTransactions: any[], investments: Investment[]): Transaction[] {
@@ -24,6 +25,7 @@ interface AppState {
     categories: Category[];
     recurringRules: RecurringRule[];
     investments: Investment[];
+    investmentTypes: import('@/types').InvestmentType[];
     projects: Project[];
     accounts: AccountWithBalance[];
     settings: AppSettings;
@@ -62,13 +64,21 @@ interface AppState {
     addProject: (project: import('@/app/actions/project').ProjectInput) => Promise<void>;
     updateProject: (id: string, updates: Partial<import('@/app/actions/project').ProjectInput>) => Promise<void>;
     deleteProject: (id: string) => Promise<void>;
+
+    // Investment Types
+    addInvestmentType: (type: import('@/app/actions/investment-type').InvestmentTypeInput) => Promise<void>;
+    updateInvestmentType: (id: string, data: import('@/app/actions/investment-type').InvestmentTypeInput) => Promise<void>;
+    deleteInvestmentType: (id: string) => Promise<void>;
 }
+
+
 
 export const useStore = create<AppState>((set, get) => ({
     transactions: [],
     categories: [], // 初始化为空，稍后获取
     recurringRules: [],
     investments: [],
+    investmentTypes: [],
     projects: [],
     accounts: [],
     settings: DEFAULT_SETTINGS,
@@ -77,14 +87,15 @@ export const useStore = create<AppState>((set, get) => ({
     fetchInitialData: async () => {
         set({ isLoading: true });
         try {
-            const [txRes, catRes, setRes, recRes, invRes, accRes, projRes] = await Promise.all([
+            const [txRes, catRes, setRes, recRes, invRes, accRes, projRes, typeRes] = await Promise.all([
                 getTransactions(),
                 getCategories(),
                 getSettings(),
                 getRecurringRules(),
                 getInvestments(),
                 getAccounts(),
-                getProjects()
+                getProjects(),
+                getInvestmentTypes()
             ]);
 
             const investments = invRes.success && invRes.data ? invRes.data : [];
@@ -97,6 +108,7 @@ export const useStore = create<AppState>((set, get) => ({
                 })) : DEFAULT_CATEGORIES,
                 recurringRules: recRes.success && recRes.data ? recRes.data as RecurringRule[] : [],
                 investments: investments,
+                investmentTypes: typeRes.success && typeRes.data ? typeRes.data as unknown as import('@/types').InvestmentType[] : [],
                 projects: projRes.success && projRes.data ? projRes.data : [],
                 accounts: accRes.success && accRes.data ? accRes.data : [],
                 settings: setRes.success && setRes.data ? setRes.data as AppSettings : DEFAULT_SETTINGS,
@@ -370,5 +382,35 @@ export const useStore = create<AppState>((set, get) => ({
                 set({ projects: projRes.data });
             }
         }
+    },
+
+    // Investment Types
+    addInvestmentType: async (type) => {
+        const res = await addInvestmentType(type);
+        if (res.success) {
+            const typeRes = await getInvestmentTypes();
+            if (typeRes.success && typeRes.data) {
+                set({ investmentTypes: typeRes.data as unknown as import('@/types').InvestmentType[] });
+            }
+        }
+    },
+    deleteInvestmentType: async (id) => {
+        const res = await deleteInvestmentType(id);
+        if (res.success) {
+            const typeRes = await getInvestmentTypes();
+            if (typeRes.success && typeRes.data) {
+                set({ investmentTypes: typeRes.data as unknown as import('@/types').InvestmentType[] });
+            }
+        }
+    },
+    updateInvestmentType: async (id, data) => {
+        const res = await updateInvestmentType(id, data);
+        if (res.success) {
+            const typeRes = await getInvestmentTypes();
+            if (typeRes.success && typeRes.data) {
+                set({ investmentTypes: typeRes.data as unknown as import('@/types').InvestmentType[] });
+            }
+        }
     }
 }));
+

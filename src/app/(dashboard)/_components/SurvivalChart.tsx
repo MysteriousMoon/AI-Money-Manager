@@ -5,6 +5,8 @@ import { formatCurrency } from '@/lib/currency';
 import { useStore } from '@/lib/store';
 import { parseLocalDate } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
+import { useState, useMemo } from 'react';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 
 interface SurvivalChartProps {
     data: any[];
@@ -14,8 +16,8 @@ interface SurvivalChartProps {
 
 export function SurvivalChart({ data, runwayMonths: preCalculatedRunway, currentCapital: preCalculatedCapital }: SurvivalChartProps) {
     const { settings } = useStore();
-
     const { t } = useTranslation();
+    const [range, setRange] = useState('1M');
 
     // 如果有后端预计算值则优先使用，否则在本地计算（向后兼容）
     // 使用 cashLevel (纯现金) 进行跑道计算，不包含 capitalLevel (包含投资)
@@ -26,6 +28,37 @@ export function SurvivalChart({ data, runwayMonths: preCalculatedRunway, current
         const runwayDays = avgDailyBurn > 0 ? currentCapital / avgDailyBurn : 0;
         return runwayDays / 30;
     })();
+
+    const filteredData = useMemo(() => {
+        if (range === 'ALL') return data;
+        const now = new Date();
+        const cutoff = new Date();
+        // Reset hours to avoid partial day issues? Not strictly necessary for this level of filtering
+
+        switch (range) {
+            case '1W':
+                cutoff.setDate(now.getDate() - 7);
+                break;
+            case '1M':
+                cutoff.setMonth(now.getMonth() - 1);
+                break;
+            case '3M':
+                cutoff.setMonth(now.getMonth() - 3);
+                break;
+            case 'YTD':
+            case '1Y':
+                cutoff.setMonth(now.getMonth() - 12); // Fallback if YTD meant 1 year rolling, or stick to Jan 1
+                // User said "Year", usually implies 1 Year rolling or YTD. Let's keep YTD logic if that's what we had, or standard 1Y.
+                // Actually the user complaint "点到年的时候就以周为单位来显示了" implies they want "Year" view.
+                // Let's stick to the options logic.
+                if (range === 'YTD') cutoff.setMonth(0, 1);
+                else cutoff.setFullYear(now.getFullYear() - 1);
+                break;
+            default:
+                return data;
+        }
+        return data.filter(d => new Date(d.date) >= cutoff);
+    }, [data, range]);
 
     return (
         <div className="h-full flex flex-col">
@@ -38,17 +71,29 @@ export function SurvivalChart({ data, runwayMonths: preCalculatedRunway, current
                         </span>
                     </div>
                 </div>
-                <div className="text-right">
-                    <div className={`text-2xl font-bold font-mono ${runwayMonths < 3 ? 'text-red-500' : 'text-emerald-500'}`}>
-                        {runwayMonths.toFixed(1)} <span className="text-sm font-normal text-muted-foreground">{t('dashboard.months')}</span>
+                <div className="flex flex-col items-end gap-2">
+                    <SegmentedControl
+                        value={range}
+                        onChange={setRange}
+                        options={[
+                            { label: '周', value: '1W' },
+                            { label: '月', value: '1M' },
+                            { label: '季', value: '3M' },
+                            { label: '年', value: 'YTD' },
+                        ]}
+                    />
+                    <div className="text-right">
+                        <div className={`text-2xl font-bold font-mono ${runwayMonths < 3 ? 'text-red-500' : 'text-emerald-500'}`}>
+                            {runwayMonths.toFixed(1)} <span className="text-sm font-normal text-muted-foreground">{t('dashboard.months')}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{t('dashboard.based_on_burn')}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground">{t('dashboard.based_on_burn')}</p>
                 </div>
             </div>
 
             <div className="flex-1 min-h-[200px]">
                 <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data}>
+                    <AreaChart data={filteredData}>
                         <defs>
                             <linearGradient id="colorCapital" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="5%" stopColor="hsl(var(--cash))" stopOpacity={0.3} />

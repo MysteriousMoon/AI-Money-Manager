@@ -40,6 +40,10 @@ export function SmartPnLChart({ data }: SmartPnLChartProps) {
         return acc;
     }, []);
 
+    // Force show only the last 2 months as per requirement
+    // "下面的只能损益表位置原先两个月的设定"
+    const displayData = monthlyData.slice(-2);
+
     return (
         <div className="h-full flex flex-col">
             <div className="flex justify-between items-center mb-4">
@@ -56,7 +60,7 @@ export function SmartPnLChart({ data }: SmartPnLChartProps) {
 
             <div className="flex-1 min-h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={monthlyData}>
+                    <ComposedChart data={displayData}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted-foreground))" opacity={0.1} />
                         <XAxis
                             dataKey="month"

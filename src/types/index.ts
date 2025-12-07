@@ -97,6 +97,7 @@ export interface Investment {
     userId: string;
     name: string;
     type: string;
+    investmentTypeId?: string | null;
     initialAmount: number;
     currentAmount?: number | null;
     currencyCode: string;
@@ -131,6 +132,15 @@ export interface Project {
     endDate?: string | null;
     totalBudget?: number | null;
     currencyCode?: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export interface InvestmentType {
+    id: string;
+    userId: string;
+    name: string;
+    category: 'STOCK' | 'DEPOSIT' | 'ASSET' | 'FUND' | 'OTHER';
     createdAt: Date;
     updatedAt: Date;
 }

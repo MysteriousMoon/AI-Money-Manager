@@ -131,6 +131,7 @@ model User {
   investments    Investment[]
   accounts       Account[]
   projects       Project[]
+  investmentTypes InvestmentType[]
   settings       Settings?
 
   @@map("users")
@@ -142,6 +143,8 @@ model Investment {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name          String
   type          String   // 'STOCK' | 'DEPOSIT' | 'FUND' | 'ASSET' | 'OTHER'
+  investmentTypeId String? // Optional link to custom type
+  investmentType InvestmentType? @relation(fields: [investmentTypeId], references: [id], onDelete: SetNull)
   initialAmount Decimal
   currentAmount Decimal? // For tracking market value
   currencyCode  String   @default("CNY")
@@ -232,4 +235,20 @@ model SystemSettings {
   updatedBy          String?  // Admin user ID who last updated
 
   @@map("system_settings")
+}
+
+model InvestmentType {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String   // e.g., "US Stocks", "Rental Property"
+  category  String   // 'STOCK' | 'DEPOSIT' | 'ASSET' | 'FUND' | 'OTHER'
+  
+  investments Investment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("investment_types")
 }

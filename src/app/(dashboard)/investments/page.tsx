@@ -15,13 +15,15 @@ import { getInvestmentSummary } from '@/app/actions/dashboard';
 
 export default function InvestmentsPage() {
     const { t } = useTranslation();
-    const { investments, accounts, projects, addInvestment, updateInvestment, deleteInvestment, closeInvestment, writeOffInvestment, recordDepreciation, isLoading, settings } = useStore();
+    const { investments, investmentTypes, accounts, projects, addInvestment, updateInvestment, deleteInvestment, closeInvestment, writeOffInvestment, recordDepreciation, isLoading, settings } = useStore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Form State
     const [name, setName] = useState('');
-    const [type, setType] = useState('DEPOSIT'); // DEPOSIT, STOCK, OTHER
+    const [type, setType] = useState('DEPOSIT'); // DEPOSIT, STOCK, OTHER, or custom ID
+    const [customTypeId, setCustomTypeId] = useState<string | null>(null);
     const [initialAmount, setInitialAmount] = useState('');
     const [currentAmount, setCurrentAmount] = useState('');
     const [currencyCode, setCurrencyCode] = useState(settings.currency);
@@ -74,6 +76,7 @@ export default function InvestmentsPage() {
         setEditingId(null);
         setName('');
         setType('DEPOSIT');
+        setCustomTypeId(null);
         setInitialAmount('');
         setCurrentAmount('');
         setCurrencyCode(settings.currency);
@@ -87,12 +90,14 @@ export default function InvestmentsPage() {
         setUsefulLife('');
         setSalvageValue('');
         setDepreciationType('STRAIGHT_LINE');
+        setIsSubmitting(false);
     };
 
     const handleEdit = (investment: Investment) => {
         setEditingId(investment.id);
         setName(investment.name);
         setType(investment.type);
+        setCustomTypeId((investment as any).investmentTypeId || null); // Load custom type
         setInitialAmount(investment.initialAmount.toString());
         setCurrentAmount(investment.currentAmount?.toString() || '');
         setCurrencyCode(investment.currencyCode);
@@ -111,11 +116,19 @@ export default function InvestmentsPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSubmitting) return;
+
+        setIsSubmitting(true);
+        // Check if selected type is a custom type
+        const customType = investmentTypes.find(at => at.id === type);
+        const resolvedType = customType ? customType.category : type;
+        const resolvedTypeId = customType ? customType.id : null;
 
         const investmentData: any = {
             name,
-            type,
-            initialAmount: type === 'ASSET' ? parseFloat(purchasePrice) : parseFloat(initialAmount),
+            type: resolvedType, // Save the logic category as the type string for backward compatibility
+            investmentTypeId: resolvedTypeId, // Save the link to custom type
+            initialAmount: resolvedType === 'ASSET' ? parseFloat(purchasePrice) : parseFloat(initialAmount),
             currentAmount: currentAmount ? parseFloat(currentAmount) : null,
             currencyCode,
             interestRate: interestRate ? parseFloat(interestRate) : null,
@@ -126,10 +139,10 @@ export default function InvestmentsPage() {
             projectId: projectId || null,
             status: 'ACTIVE',
             // Asset-specific fields
-            purchasePrice: type === 'ASSET' && purchasePrice ? parseFloat(purchasePrice) : null,
-            usefulLife: type === 'ASSET' && usefulLife ? parseInt(usefulLife) : null,
-            salvageValue: type === 'ASSET' && salvageValue ? parseFloat(salvageValue) : null,
-            depreciationType: type === 'ASSET' ? depreciationType : null,
+            purchasePrice: resolvedType === 'ASSET' && purchasePrice ? parseFloat(purchasePrice) : null,
+            usefulLife: resolvedType === 'ASSET' && usefulLife ? parseInt(usefulLife) : null,
+            salvageValue: resolvedType === 'ASSET' && salvageValue ? parseFloat(salvageValue) : null,
+            depreciationType: resolvedType === 'ASSET' ? depreciationType : null,
         };
 
         console.log('📦 Submitting investment data:', investmentData);
@@ -147,6 +160,7 @@ export default function InvestmentsPage() {
         } catch (error) {
             console.error('❌ Failed to add/update investment:', error);
             alert('添加投资失败: ' + (error instanceof Error ? error.message : String(error)));
+            setIsSubmitting(false);
         }
     };
 
@@ -395,7 +409,11 @@ export default function InvestmentsPage() {
                                             </div>
                                             <div>
                                                 <div className="font-medium">{investment.name}</div>
-                                                <div className="text-xs text-muted-foreground">{t(`investments.type.${investment.type.toLowerCase()}`)}</div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    {(investment as any).investmentTypeId
+                                                        ? investmentTypes.find(t => t.id === (investment as any).investmentTypeId)?.name
+                                                        : t(`investments.type.${investment.type.toLowerCase()}`)}
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="flex gap-1">
@@ -502,15 +520,37 @@ export default function InvestmentsPage() {
                                 <div>
                                     <label className="text-xs font-medium text-muted-foreground">{t('investments.type')}</label>
                                     <select
-                                        value={type}
-                                        onChange={(e) => setType(e.target.value)}
+                                        value={customTypeId || type} // Show custom ID if linked, else type
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            const isCustom = investmentTypes.some(t => t.id === val);
+                                            if (isCustom) {
+                                                setCustomTypeId(val);
+                                                // Just for UI logic, we might want to temporarily set 'type' to the category
+                                                // so the form fields show up correctly
+                                                const cat = investmentTypes.find(t => t.id === val)?.category || 'OTHER';
+                                                setType(cat);
+                                            } else {
+                                                setCustomTypeId(null);
+                                                setType(val);
+                                            }
+                                        }}
                                         className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                                     >
-                                        <option value="DEPOSIT">{t('investments.type.deposit')}</option>
-                                        <option value="STOCK">{t('investments.type.stock')}</option>
-                                        <option value="FUND">{t('investments.type.fund')}</option>
-                                        <option value="ASSET">{t('investments.type.asset')}</option>
-                                        <option value="OTHER">{t('investments.type.other')}</option>
+                                        <optgroup label="System Types">
+                                            <option value="DEPOSIT">{t('investments.type.deposit')}</option>
+                                            <option value="STOCK">{t('investments.type.stock')}</option>
+                                            <option value="FUND">{t('investments.type.fund')}</option>
+                                            <option value="ASSET">{t('investments.type.asset')}</option>
+                                            <option value="OTHER">{t('investments.type.other')}</option>
+                                        </optgroup>
+                                        {investmentTypes.length > 0 && (
+                                            <optgroup label="Custom Types">
+                                                {investmentTypes.map(it => (
+                                                    <option key={it.id} value={it.id}>{it.name}</option>
+                                                ))}
+                                            </optgroup>
+                                        )}
                                     </select>
                                 </div>
                                 <div>
@@ -684,14 +724,17 @@ export default function InvestmentsPage() {
                                 <button
                                     type="button"
                                     onClick={resetForm}
-                                    className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                                    disabled={isSubmitting}
+                                    className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
                                 >
                                     {t('investments.cancel')}
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                                    disabled={isSubmitting}
+                                    className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
                                 >
+                                    {isSubmitting && <LoadingSpinner className="h-4 w-4" />}
                                     {editingId ? t('investments.update') : t('investments.add')}
                                 </button>
                             </div>

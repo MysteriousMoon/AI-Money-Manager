@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useStore } from '@/lib/store';
-import { Save, RefreshCw, Moon, Sun, Laptop, List, ArrowRight, LogOut } from 'lucide-react';
+import { Save, RefreshCw, Moon, Sun, Laptop, List, ArrowRight, LogOut, Plus, Trash2, Tag, Info } from 'lucide-react';
 import { logout } from '@/app/actions/auth';
 import { fetchAIModels } from '@/app/actions/ai';
 import { cn } from '@/lib/utils';
@@ -284,27 +284,38 @@ export default function SettingsPage() {
 
                 </section>
 
-                {/* Data Management */}
                 <section className="bg-card border rounded-xl p-6 space-y-6">
                     <h2 className="text-lg font-semibold flex items-center gap-2">
                         <List className="h-5 w-5 text-primary" />
                         {t('settings.data_management')}
                     </h2>
-                    <div className="grid gap-4">
+
+                    <a
+                        href="/categories"
+                        className="flex items-center justify-between p-4 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
+                    >
+                        <div>
+                            <div className="font-medium">{t('settings.manage_categories')}</div>
+                            <div className="text-sm text-muted-foreground">
+                                {t('settings.manage_categories_desc')}
+                            </div>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                    </a>
+
+                    {/* Investment Types as a subsection */}
+                    <div className="border-t pt-4">
                         <a
-                            href="/categories"
+                            href="/settings/investment-types"
                             className="flex items-center justify-between p-4 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
                         >
-                            <div className="flex items-center gap-4">
-                                <div className="p-2 bg-primary/10 rounded-full">
-                                    <List className="h-6 w-6 text-primary" />
-                                </div>
-                                <div>
-                                    <h3 className="font-medium">{t('settings.manage_categories')}</h3>
-                                    <p className="text-sm text-muted-foreground">{t('settings.manage_categories_desc')}</p>
+                            <div>
+                                <div className="font-medium">{t('settings.manage_investment_types')}</div>
+                                <div className="text-sm text-muted-foreground">
+                                    {t('settings.manage_investment_types_desc')}
                                 </div>
                             </div>
-                            <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
                         </a>
                     </div>
                 </section>
@@ -321,6 +332,6 @@ export default function SettingsPage() {
                     </button>
                 </form>
             </div>
-        </ContentContainer>
+        </ContentContainer >
     );
 }
