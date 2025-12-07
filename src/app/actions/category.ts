@@ -15,7 +15,7 @@ export async function getCategories() {
             // 如果没有默认类别，则为该用户生成默认类别
             await prisma.category.createMany({
                 data: DEFAULT_CATEGORIES.map(c => ({
-                    id: c.id,
+                    // Let DB generate unique ID
                     name: c.name,
                     icon: c.icon,
                     type: c.type,
@@ -23,7 +23,10 @@ export async function getCategories() {
                     userId: userId,
                 }))
             });
-            return DEFAULT_CATEGORIES;
+            // Fetch the newly created categories with their real IDs
+            return await prisma.category.findMany({
+                where: { userId: userId }
+            });
         }
         return categories;
     }, 'Failed to fetch categories');
