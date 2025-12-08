@@ -1,4 +1,4 @@
-import { getUsers } from '@/app/actions/users';
+import { getUsers } from '@/app/actions/admin';
 import UserListClient from './user-list-client';
 
 export const dynamic = 'force-dynamic';

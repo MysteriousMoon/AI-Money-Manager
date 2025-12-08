@@ -126,3 +126,36 @@ export async function updateUser(userId: string, formData: FormData) {
         return { error: 'Failed to update user' };
     }
 }
+
+export async function getUsers() {
+    if (!await isAdmin()) {
+        return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+        const users = await prisma.user.findMany({
+            orderBy: { createdAt: 'desc' },
+        });
+        return { success: true, data: users };
+    } catch (error) {
+        console.error('Failed to fetch users:', error);
+        return { success: false, error: 'Failed to fetch users' };
+    }
+}
+
+export async function getUser(id: string) {
+    if (!await isAdmin()) {
+        return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id },
+        });
+        if (!user) return { success: false, error: 'User not found' };
+        return { success: true, data: user };
+    } catch (error) {
+        console.error('Failed to fetch user:', error);
+        return { success: false, error: 'Failed to fetch user' };
+    }
+}
